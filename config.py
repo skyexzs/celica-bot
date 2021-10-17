@@ -9,7 +9,10 @@ CONFIG_FOLDER = "configs"
 default_config = {
     "guild_id": "",
     "guild_name": "",
-    "command_prefix": "."
+    "command_prefix": ".",
+    "wzmaster_role": 0,
+    "participant_role": 0,
+    "teams": []
 }
 
 class Config():
@@ -19,9 +22,15 @@ class Config():
         if (not(os.path.isfile(config_file))):
             Config.write_default(guild)
 
-        with open(os.path.join(MAIN_PATH, CONFIG_FOLDER, str(guild.id) + ".json"), 'r') as f:
+        with open(config_file, 'r') as f:
             data = json.load(f)
             return data
+    
+    @staticmethod
+    def insert_config(guild: Guild, key: str, val):
+        data = Config.read_config(guild)
+        data[key] = val
+        Config.write_config(guild, data)
 
     @staticmethod
     def write_config(guild: Guild, data):

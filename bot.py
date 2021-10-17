@@ -2,13 +2,12 @@
 import os
 
 import discord
-from discord import mentions
 import discord.utils
-from discord.message import Message
 from discord.ext import commands
 from dotenv import load_dotenv
 import config
 from config import Config
+from groups import Groups
 
 from cogs.utilities import Utilities
 from cogs.warzone import Warzone
@@ -21,12 +20,16 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 def get_prefix(client, message):
     return Config.read_config(message.guild)["command_prefix"]
 
-bot = commands.Bot(command_prefix=get_prefix)
+intents = discord.Intents.default()  # Allow the use of custom intents
+intents.members = True
+
+bot = commands.Bot(command_prefix=get_prefix, intents=intents)
 
 @bot.event
 async def on_ready():
     add_cogs()
     Config.check_folder()
+    Groups.check_folder()
     print(f'{bot.user} has connected to Discord!')
 
 @bot.event

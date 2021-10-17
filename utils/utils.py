@@ -24,7 +24,7 @@ red = discord.Color.from_rgb(255, 28, 25)      # error red
 # Utilities and helper functions
 #
 
-async def send_embed(ctx, embed):
+async def send_embed(ctx, embed, delay=None):
     """!
     Handles the sending of embeds
     @param ctx context to send to
@@ -35,7 +35,7 @@ async def send_embed(ctx, embed):
     If this all fails: https://youtu.be/dQw4w9WgXcQ
     """
     try:
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, delete_after=delay)
     except Forbidden:
         try:
             await ctx.send("Hey, seems like I can't send embeds. Please check my permissions :)")
@@ -45,7 +45,7 @@ async def send_embed(ctx, embed):
                 f"May you inform the server team about this issue? :slight_smile:", embed=embed)
 
 
-def make_embed(title="", color=blue_light, name="‌", value="‌", footer=None) -> discord.Embed:
+def make_embed(title="", desc="", color=discord.Colour.teal(), name="", value="‌", footer=None) -> discord.Embed:
     """!
     Function to generate generate an embed in one function call
     please note that name and value can't be empty - name and value contain a zero width non-joiner
@@ -57,9 +57,17 @@ def make_embed(title="", color=blue_light, name="‌", value="‌", footer=None)
     @return Embed ready to send
     """
     # make color object
-    emb = discord.Embed(title=title, color=color)
-    emb.add_field(name=name, value=value)
-    if footer:
+    
+    if title != "" and desc != "":
+        emb = discord.Embed(title=title, description=desc, color=color)
+    elif title != "":
+        emb = discord.Embed(title=title, color=color)
+    elif desc != "":
+        emb = discord.Embed(description=desc, color=color)
+
+    if name != "" and value != "":
+        emb.add_field(name=name, value=value)
+    if footer is not None:
         emb.set_footer(text=footer)
 
     return emb
