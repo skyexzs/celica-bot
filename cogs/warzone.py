@@ -108,6 +108,7 @@ class Warzone(commands.Cog):
                     emb = utl.make_embed(desc=f"There are no groups available on {date}", color=discord.Colour.red())
                     await utl.send_embed(ctx, emb)
                 else:
+                    """
                     groups = ""
                     for g in data["groups"]:
                         groups += f"\n<@{g[0]['id']}> <@{g[1]['id']}> <@{g[2]['id']}>"
@@ -120,6 +121,22 @@ class Warzone(commands.Cog):
                     
                     emb = utl.make_embed(desc=f"List of groups generated on {date}:{groups}{leftovers}", color=discord.Colour.green())
                     await utl.send_embed(ctx, emb)
+                    """
+
+                    counter = 1
+                    groups = "```"
+                    for g in data["groups"]:
+                        groups += f"\nTeam {counter}: @{g[0]['name']} - @{g[1]['name']} - @{g[2]['name']}"
+                        counter += 1
+                    
+                    leftovers = ""
+                    if len(data["leftovers"]) > 0:
+                        leftovers += "\nLeftovers:"
+                        for l in data["leftovers"]:
+                            leftovers += f"\n@{l['name']}"
+                    
+                    await ctx.send(groups+leftovers+"```")
+                    
             elif mode == "assign":
                 data = Groups.read_groups(ctx.guild, date)
 
@@ -325,6 +342,56 @@ class Warzone(commands.Cog):
             await utl.send_embed(ctx, error_emb)
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("wzmaster", error)
+    
+    @commands.command(aliases=['r'])
+    @commands.check_any(is_wzmaster(), commands.has_permissions(administrator=True))
+    async def random(self, ctx, date: str, num: int = 1):
+        data = Groups.read_groups(ctx.guild, date)
+        if data == None:
+            emb = utl.make_embed(desc=f"There are no groups available on {date}", color=discord.Colour.red())
+            await utl.send_embed(ctx, emb)
+        else:
+            if num > 0 and num <= sum([len(g) for g in data["groups"]]) + len(data["leftovers"]):
+                list_of_names = []
+                for g in data["groups"]:
+                    list_of_names.append(g[0]['name'])
+                    list_of_names.append(g[1]['name'])
+                    list_of_names.append(g[2]['name'])
+                for l in data["leftovers"]:
+                    list_of_names.append(l['name'])
+                
+                chosen = ""
+                for i in range(num):
+                    r = random.choice(list_of_names)
+                    chosen += f"\n@{r}"
+                    list_of_names.remove(r)
+
+                emb = utl.make_embed(desc=f"{num} random winners for the giveaway cycle {date}:{chosen}", color=discord.Colour.green())
+                await utl.send_embed(ctx, emb)
+            else:
+                emb = utl.make_embed(desc=f"The amount of randoms requested is lower or greater than the amount of participants!", color=discord.Colour.red())
+                await utl.send_embed(ctx, emb)
+
+    @random.error
+    async def random_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the random command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
+        elif isinstance(error, commands.MissingRequiredArgument):
+            emb = utl.make_embed(desc="Missing argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}random (date) (amount)")
+            await utl.send_embed(ctx, emb)
+        elif isinstance(error, commands.BadArgument):
+            emb = utl.make_embed(desc="Invalid argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}random (date) (amount)")
+            await utl.send_embed(ctx, emb)
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("random", error)
             
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):

@@ -39,6 +39,72 @@ class Utilities(commands.Cog):
             await utl.send_embed(ctx, error_emb)
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("teams", error)
+
+    @commands.command(aliases=['lr'])
+    @commands.has_permissions(manage_roles = True)
+    async def listrole(self, ctx, *roles: discord.Role):
+        """List members with the specified role."""
+        if (len(roles) == 1):
+            if roles[0] is ctx.guild.roles[0]:
+                emb = utl.make_embed(desc="Cannot list everyone.", color=discord.Colour.red())
+                await utl.send_embed(ctx, emb)
+                return
+            if roles[0] not in ctx.guild.roles:
+                emb = utl.make_embed(desc="Invalid role.", color=discord.Colour.red())
+                await utl.send_embed(ctx, emb)
+                return
+            else:
+                role = discord.utils.find(lambda r: r == roles[0], ctx.guild.roles)
+                members = ""
+                for m in role.members:
+                    members += f"\n<@{m.id}>"
+                emb = utl.make_embed(desc=f"List of members with role <@&{roles[0].id}>:{members}\nTotal members: {len(role.members)}", color=discord.Colour.green())
+                await utl.send_embed(ctx, emb)
+                await ctx.send("```" + members + "\n```")
+        else:
+            m_list = []
+            roles_str = ""
+            for r in roles:
+                if r is ctx.guild.roles[0] or r not in ctx.guild.roles:
+                    continue
+                elif r in ctx.guild.roles:
+                    roles_str += f"<@&{r.id}>, "
+                    role = discord.utils.find(lambda _r: _r == r, ctx.guild.roles)
+                    if len(m_list) == 0:
+                        for m in role.members:
+                            m_list.append(m)
+                    else:
+                        m_list = list(filter(lambda m: m in role.members, m_list))
+            members = ""
+            for m in m_list:
+                members += f"\n<@{m.id}>"
+            emb = utl.make_embed(desc=f"List of members with role {roles_str[:-2]}:{members}\nTotal members: {len(m_list)}", color=discord.Colour.green())
+            await utl.send_embed(ctx, emb)
+
+    @listrole.error
+    async def listrole_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the listrole command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
+        elif isinstance(error, commands.MissingRequiredArgument):
+            emb = utl.make_embed(desc="Missing argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}listrole @Role")
+            await utl.send_embed(ctx, emb)
+        elif isinstance(error, commands.RoleNotFound):
+            emb = utl.make_embed(desc="Please enter a valid role.", color=discord.Colour.red())
+            emb.add_field(name="Usage:", value=Config.read_config(ctx.guild)["command_prefix"]+"listrole @Role")
+            await utl.send_embed(ctx, emb)
+        elif isinstance(error, commands.BadArgument):
+            emb = utl.make_embed(desc="Invalid argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}listrole @Role")
+            await utl.send_embed(ctx, emb)
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("listrole", error)
     
                 
     async def cog_command_error(self, ctx, error):
