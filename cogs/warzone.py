@@ -1,17 +1,72 @@
-from os import read
 import discord
 from discord.ext import commands
 from utils import utils as utl
 
 import os.path
 import datetime
+import pytz
 import random
 
 from config import MAIN_PATH, Config
 from groups import Groups
+import scheduler
+
+def check_if_grouping_available(guild_id: int):
+    guild = Warzone_Instance.bot.get_guild(guild_id)
+    id = Config.read_config(guild)["participant_role"]
+    if guild.get_role(id) == None:
+        return False
+    else:
+        role = guild.get_role(id)
+        if len(role.members) < 3:
+            return False
+    return True
+
+def create_groups(guild_id: int):
+    guild = Warzone_Instance.bot.get_guild(guild_id)
+    timezone = pytz.timezone("Asia/Jakarta")
+    today = datetime.datetime.today().astimezone(timezone).strftime("%d-%m-%Y")
+    id = Config.read_config(guild)["participant_role"]
+    role = guild.get_role(id)
+    Groups.write_default(guild, today)
+    data = Groups.read_groups(guild, today)
+    members = role.members.copy()
+    total_groups = len(members) // 3
+    for i in range(total_groups):
+        chosen = []
+        for i in range(3):
+            r = random.choice(members)
+            chosen.append({"id":r.id,"name":r.name})
+            members.remove(r)
+        data["groups"].append(chosen)
+    for m in members:
+        data["leftovers"].append({"id":m.id,"name":m.name})
+    Groups.write_groups(guild, today, data)
+    return data
+
+async def send_wz_teams(guild_id: int, channel_id: int):
+    guild = Warzone_Instance.bot.get_guild(guild_id)
+    channel = Warzone_Instance.bot.get_channel(channel_id)
+    if not check_if_grouping_available(guild_id):
+        emb = utl.make_embed(desc="Auto WZ Teams failed due to unavailable grouping.", color=discord.Colour.red())
+        await channel.send(embed=emb)
+    else:
+        data = create_groups(guild_id)
+        counter = 1
+        groups = "Teams for next cycle:"
+        for g in data["groups"]:
+            groups += f"\nTeam {counter}: <@{g[0]['id']}> - <@{g[1]['id']}> - <@{g[2]['id']}>"
+            counter += 1
+        leftovers = ""
+        if len(data["leftovers"]) > 0:
+            leftovers += "\nLeftovers:"
+            for l in data["leftovers"]:
+                leftovers += f"\n<@{l['id']}>"
+
+        await channel.send(groups+leftovers)
 
 class Warzone(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot;
 
     def is_wzmaster():
@@ -44,7 +99,8 @@ class Warzone(commands.Cog):
     @commands.command(aliases=['g'])
     @commands.check_any(is_wzmaster(), commands.has_permissions(administrator=True))
     async def groups(self, ctx, mode: str, *, date: str = None):
-        today = datetime.date.today().strftime("%d-%m-%Y")
+        timezone = pytz.timezone("Asia/Jakarta")
+        today = datetime.datetime.today().astimezone(timezone).strftime("%d-%m-%Y")
         if date == None:
             if mode == "create":
                 id = Config.read_config(ctx.guild)["participant_role"]
@@ -79,10 +135,16 @@ class Warzone(commands.Cog):
                     await utl.send_embed(ctx, emb)
             elif mode == "list":
                 groups_list = Groups.list_groups(ctx.guild)
+                groups_dt = []
+                for g in groups_list:
+                    g = g.replace(".json", "")
+                    groups_dt.append(datetime.datetime.strptime(g, '%d-%m-%Y'))
+
+                groups_dt.sort()
 
                 text = ""
-                for g in groups_list:
-                    g_str = g.replace(".json", "")
+                for g in groups_dt:
+                    g_str = g.strftime("%d-%m-%Y")
                     text += f"\n{g_str}"
 
                 emb = utl.make_embed(desc=f"List of groups created:{text}", color=discord.Colour.green())
@@ -346,6 +408,7 @@ class Warzone(commands.Cog):
     @commands.command(aliases=['r'])
     @commands.check_any(is_wzmaster(), commands.has_permissions(administrator=True))
     async def random(self, ctx, date: str, num: int = 1):
+        """Randomizer for WZ Giveaway winners based on cycle."""
         data = Groups.read_groups(ctx.guild, date)
         if data == None:
             emb = utl.make_embed(desc=f"There are no groups available on {date}", color=discord.Colour.red())
@@ -392,7 +455,71 @@ class Warzone(commands.Cog):
             await utl.send_embed(ctx, error_emb)
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("random", error)
-            
+
+    @commands.command(aliases=['s'])
+    @commands.has_permissions(administrator = True)
+    async def scheduler(self, ctx: commands.Context, mode: str, *, channel: discord.TextChannel = None):
+        """Scheduler for WZ Teams."""
+        if channel != None:
+            if channel is not None and channel not in ctx.guild.channels:
+                emb = utl.make_embed(desc="Invalid channel.", color=discord.Colour.red())
+                await utl.send_embed(ctx, emb)
+                return
+            if mode == "start":
+                if not check_if_grouping_available(ctx.guild.id):
+                    emb = utl.make_embed(desc="Unable to create scheduler due to unavailable grouping.", color=discord.Colour.red())
+                    await utl.send_embed(ctx, emb)
+                    return
+                else:
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='sun', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=ctx.guild.name, misfire_grace_time=7200, id='wzscheduler1', replace_existing=True)
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='wed', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=ctx.guild.name, misfire_grace_time=7200, id='wzscheduler2', replace_existing=True)
+                    emb = utl.make_embed(desc=f"Created 2 schedulers for Warzone in <#{channel.id}>.", color=discord.Colour.green())
+                    await utl.send_embed(ctx, emb)
+            else:
+                raise commands.BadArgument
+        else:
+            if mode == "list":
+                jobslist = scheduler.schdr.get_jobs(jobstore=ctx.guild.name)
+                
+                jobsliststr = []
+                if len(jobslist) > 0:
+                    for job in jobslist:
+                        jobsliststr.append(job.id)
+                    jobsliststr.sort()
+                    nl = '\n'
+                    emb = utl.make_embed(desc=f"There are {len(jobsliststr)} schedulers in this server:{nl}{nl.join(jobsliststr)}", color=discord.Colour.green())
+                    await utl.send_embed(ctx, emb)
+                else:
+                    emb = utl.make_embed(desc=f"There are no schedulers available on this server.", color=discord.Colour.red())
+                    await utl.send_embed(ctx, emb)
+            elif mode == "clear":
+                scheduler.schdr.remove_all_jobs(jobstore=ctx.guild.name)
+                emb = utl.make_embed(desc=f"Cleared all schedulers in this server.", color=discord.Colour.green())
+                await utl.send_embed(ctx, emb)
+            else:
+                raise commands.BadArgument
+    
+    @scheduler.error
+    async def scheduler_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the scheduler command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
+        elif isinstance(error, commands.MissingRequiredArgument):
+            emb = utl.make_embed(desc="Missing argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}scheduler start (textchannel)\n{pfx}scheduler [list/clear]")
+            await utl.send_embed(ctx, emb)
+        elif isinstance(error, commands.BadArgument):
+            emb = utl.make_embed(desc="Invalid argument in command.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}scheduler start (textchannel)\n{pfx}scheduler [list/clear]")
+            await utl.send_embed(ctx, emb)
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("scheduler", error)
+
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())
@@ -402,3 +529,5 @@ class Warzone(commands.Cog):
         else:
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("COG_warzone", error)
+
+Warzone_Instance : Warzone

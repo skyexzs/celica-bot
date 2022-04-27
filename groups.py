@@ -3,6 +3,7 @@ import json
 from discord import Guild
 from pathlib import Path
 from datetime import datetime
+import pytz
 
 MAIN_PATH = ""
 GROUPS_FOLDER = "groups"
@@ -46,9 +47,10 @@ class Groups():
         groups_file = os.path.join(MAIN_PATH, GROUPS_FOLDER, str(guild.id), date + ".json")
 
         # datetime object containing current date and time
-        now = datetime.now()
+        timezone = pytz.timezone("Asia/Jakarta")
+        now = datetime.now().astimezone(timezone)
         # dd/mm/YY H:M:S
-        dt_string = now.strftime("%a, %d/%m/%Y %H:%M:%S UTC+11")
+        dt_string = now.strftime("%a, %d/%m/%Y %H:%M:%S UTC+7")
 
         groups_copy = default_groups.copy()
         groups_copy["created_on"] = dt_string

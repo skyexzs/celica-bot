@@ -1,6 +1,5 @@
 # bot.py
 import os
-
 import discord
 import discord.utils
 from discord.ext import commands
@@ -8,17 +7,15 @@ from dotenv import load_dotenv
 import config
 from config import Config
 from groups import Groups
+import scheduler
 
 from cogs.utilities import Utilities
+import cogs.warzone
 from cogs.warzone import Warzone
-
-config.MAIN_PATH = os.path.dirname(os.path.realpath(__file__))
-
-load_dotenv(".env")
-TOKEN = os.getenv('DISCORD_TOKEN')
 
 def get_prefix(client, message):
     return Config.read_config(message.guild)["command_prefix"]
+
 
 intents = discord.Intents.default()  # Allow the use of custom intents
 intents.members = True
@@ -30,6 +27,7 @@ async def on_ready():
     add_cogs()
     Config.check_folder()
     Groups.check_folder()
+    scheduler.run_scheduler(os.getenv('MONGODB_CONN'), bot.guilds)
     print(f'{bot.user} has connected to Discord!')
 
 @bot.event
@@ -53,6 +51,23 @@ async def on_message(msg):
 
 def add_cogs():
     bot.add_cog(Utilities(bot))
-    bot.add_cog(Warzone(bot))
+    cogs.warzone.Warzone_Instance = Warzone(bot)
+    bot.add_cog(cogs.warzone.Warzone_Instance)
 
-bot.run(TOKEN)
+# try:
+#     bot.loop.create_task(scheduler.run_scheduler(os.getenv('MONGODB_CONN')))
+#     bot.loop.run_until_complete(bot.start(TOKEN))
+# except SystemExit:
+#     pass
+#     # handle_exit()
+# except KeyboardInterrupt:
+#     # handle_exit()
+#     bot.loop.close()
+#     print("Bot ended.")
+if __name__ == "__main__":
+    config.MAIN_PATH = os.path.dirname(os.path.realpath(__file__))
+
+    load_dotenv(".env")
+    TOKEN = os.getenv('DISCORD_TOKEN')
+
+    bot.run(TOKEN)
