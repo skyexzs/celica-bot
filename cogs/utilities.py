@@ -116,7 +116,7 @@ class Utilities(commands.Cog):
     async def ping(self, ctx: commands.Context, member: discord.Member):
         """Ping someone every second."""
         if member is not None:
-            scheduler.schdr.add_job(send_ping, 'interval', seconds=1, args=[ctx.channel.id, member.id], jobstore=ctx.guild.name, id='ping', replace_existing=True)
+            scheduler.schdr.add_job(send_ping, 'interval', seconds=1, args=[ctx.channel.id, member.id], jobstore=ctx.guild.name, misfire_grace_time=300, id='ping', replace_existing=True)
         else:
             scheduler.schdr.remove_job(job_id='ping', jobstore=ctx.guild.name)
     
