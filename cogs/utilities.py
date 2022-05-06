@@ -5,11 +5,16 @@ import os.path
 
 from config import MAIN_PATH, Config
 from utils import utils as utl
+import scheduler
 
 available_prefixes = ['!', '.', '#', '=', '-']
 
+async def send_ping(channel_id: int, member_id: int):
+    channel = Utilities_Instance.bot.get_channel(channel_id)
+    await channel.send(f"<@{member_id}>")
+
 class Utilities(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot;
     
     @commands.command(ignore_extra=False)
@@ -106,6 +111,32 @@ class Utilities(commands.Cog):
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("listrole", error)
     
+    @commands.command()
+    @commands.has_permissions(administrator = True)
+    async def ping(self, ctx: commands.Context, member: discord.Member):
+        """Ping someone every second."""
+        if member is not None:
+            scheduler.schdr.add_job(send_ping, 'interval', seconds=1, args=[ctx.channel.id, member.id], jobstore=ctx.guild.name, id='ping', replace_existing=True)
+        else:
+            scheduler.schdr.remove_job(job_id='ping', jobstore=ctx.guild.name)
+    
+    @ping.error
+    async def ping_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the groups command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
+        elif isinstance(error, commands.MemberNotFound):
+            emb = utl.make_embed(desc="Member not found.", color=discord.Colour.red())
+            pfx = Config.read_config(ctx.guild)["command_prefix"]
+            emb.add_field(name="Usage:", value=f"{pfx}ping @user")
+            await utl.send_embed(ctx, emb)
+        elif isinstance(error, commands.MissingRequiredArgument):
+            scheduler.schdr.remove_job(job_id='ping', jobstore=ctx.guild.name)
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("ping", error)
                 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):
@@ -114,3 +145,5 @@ class Utilities(commands.Cog):
         else:
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("COG_utilities", error)
+
+Utilities_Instance : Utilities

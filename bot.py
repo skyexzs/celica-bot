@@ -9,6 +9,7 @@ from config import Config
 from groups import Groups
 import scheduler
 
+import cogs.utilities
 from cogs.utilities import Utilities
 import cogs.warzone
 from cogs.warzone import Warzone
@@ -50,8 +51,10 @@ async def on_message(msg):
     await bot.process_commands(msg)
 
 def add_cogs():
-    bot.add_cog(Utilities(bot))
+    #bot.add_cog(Utilities(bot))
+    cogs.utilities.Utilities_Instance = Utilities(bot)
     cogs.warzone.Warzone_Instance = Warzone(bot)
+    bot.add_cog(cogs.utilities.Utilities_Instance)
     bot.add_cog(cogs.warzone.Warzone_Instance)
 
 # try:
