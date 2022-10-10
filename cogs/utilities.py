@@ -15,8 +15,8 @@ async def send_ping(channel_id: int, member_id: int):
 
 class Utilities(commands.Cog):
     def __init__(self, bot: commands.Bot):
-        self.bot = bot;
-    
+        self.bot = bot
+
     @commands.command(ignore_extra=False)
     @commands.has_permissions(administrator = True)
     async def prefix(self, ctx, symbol: str):
@@ -26,17 +26,17 @@ class Utilities(commands.Cog):
             data["command_prefix"] = symbol
             Config.write_config(ctx.guild, data)
             emb = utl.make_embed(desc="Command prefix has been set to " + symbol, color=discord.Colour.green())
-            await utl.send_embed(ctx, emb);
+            await utl.send_embed(ctx, emb)
         else:
             emb = utl.make_embed(desc="Please enter a symbol between " + str(available_prefixes), color=discord.Colour.green())
-            await utl.send_embed(ctx, emb);
+            await utl.send_embed(ctx, emb)
 
     @prefix.error
     async def prefix_error(self, ctx: commands.Context, error: commands.CommandError):
         """Handle errors for the prefix command."""
         if isinstance(error, commands.MissingRequiredArgument) or isinstance(error, commands.TooManyArguments):
             emb = utl.make_embed(desc="Please enter a symbol between " + str(available_prefixes), color=discord.Colour.green())
-            await utl.send_embed(ctx, emb);
+            await utl.send_embed(ctx, emb)
         elif isinstance(error, commands.MissingPermissions):
             pass
         else:
@@ -116,13 +116,13 @@ class Utilities(commands.Cog):
     async def ping(self, ctx: commands.Context, member: discord.Member):
         """Ping someone every second."""
         if member is not None:
-            scheduler.schdr.add_job(send_ping, 'interval', seconds=1, args=[ctx.channel.id, member.id], jobstore=ctx.guild.name, misfire_grace_time=300, id='ping', replace_existing=True)
+            scheduler.schdr.add_job(send_ping, 'interval', seconds=1, args=[ctx.channel.id, member.id], jobstore=str(ctx.guild.id), misfire_grace_time=300, id='ping', replace_existing=True)
         else:
-            scheduler.schdr.remove_job(job_id='ping', jobstore=ctx.guild.name)
+            scheduler.schdr.remove_job(job_id='ping', jobstore=str(ctx.guild.id))
     
     @ping.error
     async def ping_error(self, ctx: commands.Context, error: commands.CommandError):
-        """Handle errors for the groups command."""
+        """Handle errors for the ping command."""
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
             pass
         elif isinstance(error, commands.MemberNotFound):
@@ -131,7 +131,26 @@ class Utilities(commands.Cog):
             emb.add_field(name="Usage:", value=f"{pfx}ping @user")
             await utl.send_embed(ctx, emb)
         elif isinstance(error, commands.MissingRequiredArgument):
-            scheduler.schdr.remove_job(job_id='ping', jobstore=ctx.guild.name)
+            scheduler.schdr.remove_job(job_id='ping', jobstore=str(ctx.guild.id))
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("ping", error)
+    
+    @commands.command()
+    @commands.has_permissions(administrator = True)
+    async def sync(self, ctx: commands.Context):
+        """Syncs application commands"""
+        await self.bot.tree.sync()
+        emb = utl.make_embed(desc="Synced application commands.", color=discord.Colour.green())
+        await utl.send_embed(ctx, emb)
+    
+    @sync.error
+    async def sync_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the sync command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
         else:
             error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
             await utl.send_embed(ctx, error_emb)

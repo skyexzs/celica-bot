@@ -17,8 +17,8 @@ def run_scheduler(mongo_conn, guilds: List[Guild]):
 
     jobstores = {}
     for g in guilds:
-        client['apscheduler'][g.name]
-        jobstores[str(g.name)] = MongoDBJobStore(database='apscheduler', collection=str(g.name), client=client)
+        client['serverdata'][str(g.id)]
+        jobstores[str(g.id)] = MongoDBJobStore(database='serverdata', collection=str(g.id), client=client)
 
     schdr = AsyncIOScheduler(jobstores=jobstores, timezone=utc)
     schdr.start()

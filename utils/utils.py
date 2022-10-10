@@ -2,6 +2,7 @@ import os, re
 from typing import Union
 
 import discord
+import pytz, datetime
 from discord.errors import Forbidden
 from config import MAIN_PATH
 
@@ -93,5 +94,12 @@ def get_member_name(member: discord.Member) -> str:
     return member.nick if member.nick else member.name
 
 def log_error(cause, error):
+    timezone = pytz.timezone("Asia/Jakarta")
+    today = datetime.datetime.today().astimezone(timezone).strftime("%Y-%m-%d %H-%M-%S")
+
     with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
-        f.write(f'Unhandled exception ({cause}): {error}\n')
+        f.write(f'{today} (UTC+7) Unhandled exception ({cause}): {error}\n')
+
+class ViewTimedOutError(Exception):
+    """Raised when a Discord UI View has timed out."""
+    pass

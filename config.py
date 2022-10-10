@@ -12,7 +12,9 @@ default_config = {
     "command_prefix": ".",
     "wzmaster_role": 0,
     "participant_role": 0,
-    "teams": []
+    "teams": [],
+    "tht_role": 0,
+    "tht_role_muted": 0
 }
 
 class Config():

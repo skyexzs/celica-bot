@@ -44,9 +44,17 @@ def create_groups(guild_id: int):
     Groups.write_groups(guild, today, data)
     return data
 
+def list_wz_jobs(guild: discord.Guild):
+    if scheduler.schdr.get_job(job_id='wzscheduler1', jobstore=str(guild.id)) != None:
+        jobslist = []
+        jobslist.append(scheduler.schdr.get_job(job_id='wzscheduler1').id)
+        jobslist.append(scheduler.schdr.get_job(job_id='wzscheduler2').id)
+        return jobslist
+    return None
+
 async def send_wz_teams(guild_id: int, channel_id: int):
     guild = Warzone_Instance.bot.get_guild(guild_id)
-    channel = Warzone_Instance.bot.get_channel(channel_id)
+    channel = guild.get_channel(channel_id)
     if not check_if_grouping_available(guild_id):
         emb = utl.make_embed(desc="Auto WZ Teams failed due to unavailable grouping.", color=discord.Colour.red())
         await channel.send(embed=emb)
@@ -67,7 +75,7 @@ async def send_wz_teams(guild_id: int, channel_id: int):
 
 class Warzone(commands.Cog):
     def __init__(self, bot: commands.Bot):
-        self.bot = bot;
+        self.bot = bot
 
     def is_wzmaster():
         def predicate(ctx):
@@ -278,7 +286,10 @@ class Warzone(commands.Cog):
             emb.add_field(name="Usage:", value=Config.read_config(ctx.guild)["command_prefix"]+"participant @Role")
             await utl.send_embed(ctx, emb)
         elif isinstance(error, commands.MissingRequiredArgument):
-            id = Config.read_config(ctx.guild)["participant_role"]
+            try:
+                id = Config.read_config(ctx.guild)["participant_role"]
+            except KeyError:
+                id = 0
             if (self.role_exist(ctx, id)):
                 role = discord.utils.find(lambda r: r.id == id, ctx.guild.roles)
                 amount = len(role.members)
@@ -392,7 +403,10 @@ class Warzone(commands.Cog):
             emb.add_field(name="Usage:", value=Config.read_config(ctx.guild)["command_prefix"]+"wzmaster @Role")
             await utl.send_embed(ctx, emb)
         elif isinstance(error, commands.MissingRequiredArgument):
-            id = Config.read_config(ctx.guild)["wzmaster_role"]
+            try:
+                id = Config.read_config(ctx.guild)["wzmaster_role"]
+            except KeyError:
+                id = 0
             if (self.role_exist(ctx, id)):
                 emb = utl.make_embed(desc="WZMaster role has been set to <@&" + str(id) + ">.", color=discord.Colour.green())
             else:
@@ -470,31 +484,35 @@ class Warzone(commands.Cog):
                     emb = utl.make_embed(desc="Unable to create scheduler due to unavailable grouping.", color=discord.Colour.red())
                     await utl.send_embed(ctx, emb)
                     return
+                elif list_wz_jobs(ctx.guild) != None:
+                    emb = utl.make_embed(desc="Unable to create schedulers because they already exist.", color=discord.Colour.red())
+                    await utl.send_embed(ctx, emb)
+                    return
                 else:
-                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='sun', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=ctx.guild.name, misfire_grace_time=7200, id='wzscheduler1', replace_existing=True)
-                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='wed', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=ctx.guild.name, misfire_grace_time=7200, id='wzscheduler2', replace_existing=True)
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='sun', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler1', replace_existing=True, coalesce=True)
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='wed', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler2', replace_existing=True, coalesce=True)
                     emb = utl.make_embed(desc=f"Created 2 schedulers for Warzone in <#{channel.id}>.", color=discord.Colour.green())
                     await utl.send_embed(ctx, emb)
             else:
                 raise commands.BadArgument
         else:
             if mode == "list":
-                jobslist = scheduler.schdr.get_jobs(jobstore=ctx.guild.name)
-                
-                jobsliststr = []
-                if len(jobslist) > 0:
-                    for job in jobslist:
-                        jobsliststr.append(job.id)
-                    jobsliststr.sort()
+                joblist = list_wz_jobs(ctx.guild)
+                if joblist != None:
                     nl = '\n'
-                    emb = utl.make_embed(desc=f"There are {len(jobsliststr)} schedulers in this server:{nl}{nl.join(jobsliststr)}", color=discord.Colour.green())
+                    emb = utl.make_embed(desc=f"There are {len(joblist)} schedulers in this server:{nl}{nl.join(joblist)}", color=discord.Colour.green())
                     await utl.send_embed(ctx, emb)
                 else:
                     emb = utl.make_embed(desc=f"There are no schedulers available on this server.", color=discord.Colour.red())
                     await utl.send_embed(ctx, emb)
             elif mode == "clear":
-                scheduler.schdr.remove_all_jobs(jobstore=ctx.guild.name)
-                emb = utl.make_embed(desc=f"Cleared all schedulers in this server.", color=discord.Colour.green())
+                joblist = list_wz_jobs(ctx.guild)
+                if joblist != None:
+                    for j in joblist:
+                        scheduler.schdr.remove_job(job_id=j, jobstore=str(ctx.guild.id))
+                    emb = utl.make_embed(desc=f"Cleared all WZ schedulers in this server.", color=discord.Colour.green())
+                else:
+                    emb = utl.make_embed(desc=f"There are no schedulers available on this server.", color=discord.Colour.red())
                 await utl.send_embed(ctx, emb)
             else:
                 raise commands.BadArgument
