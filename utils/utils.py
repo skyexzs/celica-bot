@@ -100,6 +100,6 @@ def log_error(cause, error):
     with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
         f.write(f'{today} (UTC+7) Unhandled exception ({cause}): {error}\n')
 
-class ViewTimedOutError(Exception):
+class ViewTimedOutError(discord.app_commands.AppCommandError):
     """Raised when a Discord UI View has timed out."""
     pass

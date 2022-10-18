@@ -142,8 +142,8 @@ class Utilities(commands.Cog):
     @commands.has_permissions(administrator = True)
     async def sync(self, ctx: commands.Context):
         """Syncs application commands"""
-        await self.bot.tree.sync()
-        emb = utl.make_embed(desc="Synced application commands.", color=discord.Colour.green())
+        await self.bot.tree.sync()#guild=discord.Object(id=ctx.guild.id))
+        emb = utl.make_embed(desc="Syncing application commands.", color=discord.Colour.green())
         await utl.send_embed(ctx, emb)
     
     @sync.error

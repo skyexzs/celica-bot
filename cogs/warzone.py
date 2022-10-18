@@ -489,8 +489,8 @@ class Warzone(commands.Cog):
                     await utl.send_embed(ctx, emb)
                     return
                 else:
-                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='sun', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler1', replace_existing=True, coalesce=True)
-                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='wed', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler2', replace_existing=True, coalesce=True)
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='sun', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler1', replace_existing=True, max_instances=1000)
+                    scheduler.schdr.add_job(send_wz_teams, 'cron', day_of_week='wed', hour='20', minute='30', args=[ctx.guild.id, channel.id], jobstore=str(ctx.guild.id), misfire_grace_time=7200, id='wzscheduler2', replace_existing=True, max_instances=1000)
                     emb = utl.make_embed(desc=f"Created 2 schedulers for Warzone in <#{channel.id}>.", color=discord.Colour.green())
                     await utl.send_embed(ctx, emb)
             else:

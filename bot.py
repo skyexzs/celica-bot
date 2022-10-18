@@ -2,6 +2,7 @@
 import os
 import sys
 import pytz, datetime
+import gspread
 from dotenv import load_dotenv
 
 import discord
@@ -9,17 +10,22 @@ import discord.utils
 from discord.ext import commands
 
 import config
-from config import Config
+from config import Config, MAIN_PATH
 from groups import Groups
 import scheduler
 import mongo
 from mongo import MongoDB
+import cogs.ppc
+from cogs.ppc import PPC
+import cogs.guild
+from cogs.guild import PGR_Guild
 import cogs.tht
 from cogs.tht import THT
 import cogs.utilities
 from cogs.utilities import Utilities
 import cogs.warzone
 from cogs.warzone import Warzone
+from utils.utils import ViewTimedOutError
 
 def get_prefix(client, message):
     return Config.read_config(message.guild)["command_prefix"]
@@ -35,12 +41,13 @@ bot = commands.Bot(command_prefix=get_prefix, intents=intents)
 
 @bot.event
 async def on_ready():
-    await add_cogs()
     Config.check_folder()
     Groups.check_folder()
     mongo.Mongo_Instance = MongoDB(os.getenv('MONGODB_CONN'))
     mongo.Mongo_Instance.setup(bot.guilds)
     scheduler.run_scheduler(os.getenv('MONGODB_CONN'), bot.guilds)
+    gc = gspread.service_account(filename=os.path.join(MAIN_PATH, 'service_account.json'))
+    await add_cogs(gc)
     print(f'{bot.user} has connected to Discord on ' + str(len(bot.guilds)) + ' servers.')
 
 @bot.event
@@ -59,20 +66,34 @@ async def on_message(msg: discord.Message):
         if not(msg.author.bot):
             if discord.utils.find(lambda m: m.id == bot.user.id, msg.mentions) != None:
                 await msg.channel.send("Hi! My prefix for this server is *" + Config.read_config(msg.guild)["command_prefix"] +"*")
-            await cogs.tht.on_tht_message_event(msg)
     except:
         pass
 
     await bot.process_commands(msg)
 
-async def add_cogs():
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error):
+    if isinstance(error, commands.errors.CommandNotFound):
+        return
+    if isinstance(error, ViewTimedOutError):
+        emb = discord.Embed(description="Timed out...", color=discord.Colour.red())
+        await interaction.edit_original_response(embed=emb, view=None)
+    else:
+        raise
+        #print(error)
+
+async def add_cogs(gc):
     cogs.utilities.Utilities_Instance = Utilities(bot)
     cogs.warzone.Warzone_Instance = Warzone(bot)
     cogs.tht.THT_Instance = THT(bot)
+    cogs.guild.Guild_Instance = PGR_Guild(bot, gc)
+    cogs.ppc.PPC_Instance = PPC(bot, gc)
     await bot.add_cog(cogs.utilities.Utilities_Instance)
     await bot.add_cog(cogs.warzone.Warzone_Instance)
     await bot.add_cog(cogs.tht.THT_Instance)
-
+    await bot.add_cog(cogs.guild.Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
+    await bot.add_cog(cogs.ppc.PPC_Instance)
+    
 # try:
 #     bot.loop.create_task(scheduler.run_scheduler(os.getenv('MONGODB_CONN')))
 #     bot.loop.run_until_complete(bot.start(TOKEN))

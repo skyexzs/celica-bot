@@ -5,7 +5,6 @@ from apscheduler.job import Job
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord import TextStyle
 
 from utils import utils as utl
 from config import MAIN_PATH, Config
@@ -24,44 +23,28 @@ async def get_tht_jobs(guild_id):
     thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(guild_id))
     tht15job = scheduler.schdr.get_job(job_id='tht15scheduler', jobstore=str(guild_id))
     return thtjob, tht15job
-
-async def on_tht_message_event(msg: discord.Message):
-    """ code for development in Test Server"""
-    #if msg.guild.id != 487100763684864010:
-        #return
-
-    if msg.channel.permissions_for(msg.author).administrator == True:
-        return
-
-    thtjob, tht15job = await get_tht_jobs(msg.guild.id)
-
-    if thtjob != None:
-        await check_player_tht_message(msg, thtjob)
-
-    if tht15job != None:
-        await check_player_tht_message(msg, tht15job)
     
 async def check_player_tht_message(msg: discord.Message, job: Job):
-        channel_id = job.args[1]
+    channel_id = job.args[1]
 
-        if msg.channel.id == channel_id:
-            query = { '_id': str(msg.author.id) }
-            player_data = await mongo.Mongo_Instance.get_data(msg.guild, query, 'thtdata')
+    if msg.channel.id == channel_id:
+        query = { '_id': str(msg.author.id) }
+        player_data = await mongo.Mongo_Instance.get_data(msg.guild, query, 'thtdata')
 
-            if player_data != None:
+        if player_data != None:
 
-                chat_count = player_data['chat_count'] + 1
-                if chat_count >= 2:
-                    muted_role_id = Config.read_config(msg.guild)['tht_role_muted']
-                    await msg.author.add_roles(msg.guild.get_role(muted_role_id))
-            
-            else:
-                player_data = { '$set':
-                {   '_id': str(msg.author.id),
-                    'name': str(msg.author),
-                    'chat_count': 1 }
-                }
-                await mongo.Mongo_Instance.insert_data(msg.guild, query, player_data, 'thtdata')
+            chat_count = player_data['chat_count'] + 1
+            if chat_count >= 2:
+                muted_role_id = Config.read_config(msg.guild)['tht_role_muted']
+                await msg.author.add_roles(msg.guild.get_role(muted_role_id))
+        
+        else:
+            player_data = { '$set':
+            {   '_id': str(msg.author.id),
+                'name': str(msg.author),
+                'chat_count': 1 }
+            }
+            await mongo.Mongo_Instance.insert_data(msg.guild, query, player_data, 'thtdata')
 
 async def stop_tht_event(guild_id: int, channel_id: int, role_id: int, type: str):
     guild = THT_Instance.bot.get_guild(guild_id)
@@ -212,6 +195,26 @@ class THT(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
     
+    @commands.Cog.listener()
+    async def on_message(self, msg: discord.Message):
+        if msg.author.bot:
+            return
+            
+        """ code for development in Test Server"""
+        #if msg.guild.id != 487100763684864010:
+            #return
+
+        if msg.channel.permissions_for(msg.author).administrator == True:
+            return
+
+        thtjob, tht15job = await get_tht_jobs(msg.guild.id)
+
+        if thtjob != None:
+            await check_player_tht_message(msg, thtjob)
+
+        if tht15job != None:
+            await check_player_tht_message(msg, tht15job)
+
     @app_commands.command(name="tht")
     @app_commands.default_permissions(administrator=True)
     async def tht(self, interaction: discord.Interaction) -> None:
@@ -310,6 +313,7 @@ class THT(commands.Cog):
                         elif dropdown.value == '15min':
                             start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
                             end_date = start_date + datetime.timedelta(minutes=15)
+                            #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
                             url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476457246761/THT_7.png'
                             job_id = 'tht15scheduler'
                             pass
@@ -323,7 +327,7 @@ class THT(commands.Cog):
                         else:
                             emb.set_thumbnail(url=url)
 
-                        scheduler.schdr.add_job(stop_tht_event, 'date', run_date=end_date, args=[interaction.guild.id, interaction.channel.id, role, dropdown.value], jobstore=str(interaction.guild.id), misfire_grace_time=7200, id=job_id, replace_existing=True, coalesce=True)
+                        scheduler.schdr.add_job(stop_tht_event, 'date', run_date=end_date, args=[interaction.guild.id, interaction.channel.id, role, dropdown.value], jobstore=str(interaction.guild.id), misfire_grace_time=7200, id=job_id, replace_existing=True, max_instances=1000)
 
                         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
                         #await interaction.delete_original_response() // you can delete a ephemeral message this way

@@ -12,6 +12,7 @@ class MongoDB():
     def __init__(self, mongo_conn):
         self.client = MongoClient(mongo_conn)
         self.db = self.client['serverdata']
+        self.resources = self.client['resources']
 
     def setup(self, guilds: List[Guild]):
         collist = self.db.list_collection_names()
@@ -58,5 +59,13 @@ class MongoDB():
             col = self.client[database][str(guild.id)]
 
         col.delete_many(query)
+    
+    def get_resources(self, collection, query):
+        col = self.resources[collection]
+        try:
+            data = list(col.find(query))
+        except:
+            data = None
+        return data
 
 Mongo_Instance : MongoDB

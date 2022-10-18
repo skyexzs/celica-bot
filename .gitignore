@@ -3,3 +3,4 @@
 configs/
 err.log
 *.pyc
+service_account.json

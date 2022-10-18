@@ -14,7 +14,11 @@ default_config = {
     "participant_role": 0,
     "teams": [],
     "tht_role": 0,
-    "tht_role_muted": 0
+    "tht_role_muted": 0,
+    "gm_role": 0,
+    "exaltairs_role": 0,
+    "main_role": 0,
+    "sub_role": 0
 }
 
 class Config():
