@@ -83,15 +83,15 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
         warnings -= 1
     total = len(progress)
 
-    progress = round(done / total * 100, 2)
-    rounded_progress = int(round(progress * 2 / 10))
+    progress_percentage = round(done / total * 100, 2)
+    rounded_progress = int(round(progress_percentage * 2 / 10))
 
     today = datetime.date.today()
     start_of_week = today - datetime.timedelta(days=today.weekday())
     start_of_week = start_of_week.strftime("%d/%m/%Y")
     
     first_date = start_of_week
-    
+
     if len(gb_dates) > 0:
         first_date = gb_dates[0]
     if len(progress) != 0:
