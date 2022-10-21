@@ -76,15 +76,7 @@ def make_embed(title="", desc="", color=discord.Colour.teal(), name="", value="â
 
 def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Member, uid, guild, progress, this_week: bool, gb_dates):
     text = ''
-    progress.append(this_week)
-    done = progress.count(True)
-    warnings = progress.count(False)
-    if this_week is False:
-        warnings -= 1
-    total = len(progress)
-
-    progress_percentage = round(done / total * 100, 2)
-    rounded_progress = int(round(progress_percentage * 2 / 10))
+    warnings = 0
 
     today = datetime.date.today()
     start_of_week = today - datetime.timedelta(days=today.weekday())
@@ -95,6 +87,15 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     if len(gb_dates) > 0:
         first_date = gb_dates[0]
     if len(progress) != 0:
+        progress.append(this_week)
+        done = progress.count(True)
+        warnings = progress.count(False)
+        if this_week is False:
+            warnings -= 1
+        total = len(progress)
+
+        progress_percentage = round(done / total * 100, 2)
+        rounded_progress = int(round(progress_percentage * 2 / 10))
         bar = ''
         for i in range(int(rounded_progress)):
             bar += 'â–ˆ'
