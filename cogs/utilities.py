@@ -155,7 +155,26 @@ class Utilities(commands.Cog):
             error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
             await utl.send_embed(ctx, error_emb)
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
-                utl.log_error("ping", error)
+                utl.log_error("sync", error)
+        
+    @commands.command()
+    @commands.has_permissions(administrator = True)
+    async def gsync(self, ctx: commands.Context):
+        """Syncs application commands for guild"""
+        await self.bot.tree.sync(guild=discord.Object(id=ctx.guild.id))
+        emb = utl.make_embed(desc="Syncing application commands in guild.", color=discord.Colour.green())
+        await utl.send_embed(ctx, emb)
+    
+    @sync.error
+    async def sync_error(self, ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the gsync command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            pass
+        else:
+            error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())
+            await utl.send_embed(ctx, error_emb)
+            with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
+                utl.log_error("gsync", error)
                 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):

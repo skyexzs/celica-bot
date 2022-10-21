@@ -67,7 +67,7 @@ async def on_message(msg: discord.Message):
             if discord.utils.find(lambda m: m.id == bot.user.id, msg.mentions) != None:
                 await msg.channel.send("Hi! My prefix for this server is *" + Config.read_config(msg.guild)["command_prefix"] +"*")
     except:
-        pass
+        raise
 
     await bot.process_commands(msg)
 

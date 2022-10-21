@@ -1,8 +1,10 @@
 import os, re
+import decimal
+import pytz, datetime
 from typing import Union
 
 import discord
-import pytz, datetime
+
 from discord.errors import Forbidden
 from config import MAIN_PATH
 
@@ -73,6 +75,65 @@ def make_embed(title="", desc="", color=discord.Colour.teal(), name="", value="�
 
     return emb
 
+def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Member, uid, guild, progress, this_week: bool, gb_dates):
+    text = ''
+    if len(progress) != 0:
+        progress.append(this_week)
+        done = progress.count(True)
+        warnings = progress.count(False)
+        if this_week is False:
+            warnings -= 1
+        total = len(progress)
+
+        progress = round(done / total * 100, 2)
+        rounded_progress = int(round(progress * 2 / 10))
+
+        today = datetime.date.today()
+        start_of_week = today - datetime.timedelta(days=today.weekday())
+        start_of_week = start_of_week.strftime("%d/%m/%Y")
+        
+        first_date = start_of_week
+        if len(gb_dates) > 0:
+            first_date = gb_dates[0]
+
+        bar = ''
+        for i in range(int(rounded_progress)):
+            bar += '█'
+        for i in range(int(rounded_progress), 20):
+            bar += '░'
+        text = f'**__Completion rate:__**\n**║{bar}║ ({progress:g}%)**\n\n`{done} out of {total} guild battles completed since {first_date}`\n⠀'
+
+    g_emoji = ''
+    if guild == 'Main Guild':
+        g_emoji = '<:snowflakeblue:918047193464725534>'
+    else:
+        g_emoji = '<:snowflakepink:918047193255002133>'
+
+    icon = ''
+    if interaction.guild.icon != None:
+        icon = interaction.guild.icon.url
+
+    if text == '':
+        text = '`No GB records found yet.`'
+    emb = discord.Embed(title=f'{g_emoji} {member} (UID: {uid}) <:exaltair_Logo:937199287807377458>', description=text)
+    emb.set_author(name='Guild Battle Progress', icon_url=icon)
+    if (member.display_avatar != None):
+        emb.set_thumbnail(url=member.display_avatar.url)
+
+    if this_week is True:
+        emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':white_check_mark: The mods have marked your GB completion.', inline=False)
+    elif this_week is False:
+        emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':x: The mods have not marked your GB as completed.', inline=False)
+    else:
+        emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':white_circle: You are exempted from doing GB this week.', inline=False)
+    
+    if warnings > 0:
+        emb.add_field(name=':warning: Warnings', value=f'You have {warnings} warning(s) for previously missing a guild battle.', inline=False)
+
+    emb.set_footer(text=f'〆 Exaltair • {guild}')
+    emb.timestamp = datetime.datetime.now()
+
+    return emb
 
 def extract_id_from_string(content: str) -> Union[int, None]:
     """!

@@ -1,23 +1,14 @@
 import os
-import re
 import math
 import datetime
-from typing import List, Literal, Optional
-import gspread
-from gspread.exceptions import SpreadsheetNotFound
-from gspread.exceptions import APIError
+from typing import List
 
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.app_commands import Choice
 
 from utils import utils as utl
 from utils.utils import ViewTimedOutError
-from utils.models import Button_UI
-from utils.models import Button_View
-from config import MAIN_PATH, Config
-import scheduler
 import mongo
 
 # initial data to add to Mongo DB
@@ -41,6 +32,9 @@ query = [
 
 SS_TOTAL_SCORE_CELL = 'C12'
 WHALE_TOTAL_SCORE_CELL = 'J4'
+
+def is_owner(interaction: discord.Interaction) -> bool:
+    return interaction.user.id == 150826178842722304
 
 class EX_PPC_BOSSES_DROPDOWN(discord.ui.Select):
     def __init__(self, parent, bosses: List[str], boss_icons):
@@ -92,10 +86,11 @@ class PPC(commands.Cog):
             raise
     
     def update_bosses(self):
-        self.bosses.clear()
-        self.ss_scores.clear()
         try:
             self.boss_icons = mongo.Mongo_Instance.get_resources('boss_icons', {})
+
+            self.bosses.clear()
+            self.ss_scores.clear()
 
             # --- SS Spreadsheet --- #
             ss_ws = self.ss_sh.worksheets()[2:]
@@ -156,9 +151,20 @@ class PPC(commands.Cog):
         
         raw_ss_total = 0
         raw_whale_total = 0
+        
+        icon0 = ''
+        icon1 = ''
+        icon2 = ''
+        for i in self.boss_icons:
+            if i['_id'] == dropdown.values[0]:
+                icon0 = i['emoji'] + ' '
+            if i['_id'] == dropdown.values[1]:
+                icon1 = i['emoji'] + ' '
+            if i['_id'] == dropdown.values[2]:
+                icon2 = i['emoji'] + ' '
 
         emb = discord.Embed(
-            title=f"Bosses: {dropdown.values[0]} - {dropdown.values[1]} - {dropdown.values[2]}",
+            title=f"{icon0}{dropdown.values[0]} - {icon1}{dropdown.values[1]} - {icon2}{dropdown.values[2]}",
             color=discord.Colour.blue())
         emb.set_author(name=interaction.guild.name)
         if interaction.guild.icon != None:
@@ -201,6 +207,17 @@ class PPC(commands.Cog):
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
         await interaction.edit_original_response(embed=success, view=None)
         await interaction.followup.send(embed=emb)
+    
+    @app_commands.command(name="exppc_update")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_owner)
+    async def exppc_update(self, interaction: discord.Interaction) -> None:
+        """Updates the EX-PPC scores from the spreadsheet"""
+        emb = utl.make_embed(desc='Updating...', color=discord.Colour.yellow())
+        await interaction.response.send_message(embed=emb, ephemeral=True)
+        self.update_bosses()
+        emb = utl.make_embed(desc='EX-PPC scores updated!', color=discord.Colour.green())
+        await interaction.edit_original_response(embed=emb)
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):

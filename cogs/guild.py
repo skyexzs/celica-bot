@@ -1,9 +1,9 @@
 import os
 import re
+import datetime
 from typing import Literal, Optional
-import gspread
-from gspread.exceptions import SpreadsheetNotFound
-from gspread.exceptions import APIError
+from gspread.utils import ValueRenderOption
+from xlsxwriter.utility import xl_col_to_name
 
 import discord
 from discord.ext import commands
@@ -15,8 +15,6 @@ from utils.utils import ViewTimedOutError
 from utils.models import Button_UI
 from utils.models import Button_View
 from config import Config
-import scheduler
-import mongo
 
 """
 Special Cog for the Exaltair Guild
@@ -32,7 +30,7 @@ def is_gm():
     return app_commands.check(predicate)
 
 def role_exist(interaction: discord.Interaction, id: int):
-    if interaction.guild.get_role(id) == None:
+    if interaction.guild.get_role(id) is None:
         return False
     else:
         return True
@@ -74,25 +72,43 @@ class PGR_Guild(commands.Cog):
 
         try:
             self.sh = self.gc.open_by_url(os.getenv('EXALTAIR_SPREADSHEET'))
-            self.main_ws = self.sh.worksheet('Main')
+            self.main_ws = self.sh.worksheet('Main BACKUP')
             self.sub_ws = self.sh.worksheet('Sub')
             self.get_data('Main')
             self.get_data('Sub')
         except:
             raise
 
+    def clear_gb_data(self, ws, gb_dates):
+        requests = {"requests": [
+            {
+                "repeatCell": {
+                    "cell": {"dataValidation": {"condition": {"type": "BOOLEAN"}}, "userEnteredValue": {"boolValue": False}},
+                    "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": 81, "startColumnIndex": 5, "endColumnIndex": 5+len(gb_dates)},
+                    "fields": "*"
+                }
+            }
+        ]}
+        self.sh.batch_update(requests) # this is batch update function from spreadsheet not worksheet. it calls directly to google apis
+    
     def get_data(self, guild_type: str):
+        main_gb_dates = self.main_ws.row_values(1)[5:]
+        sub_gb_dates = self.sub_ws.row_values(1)[5:]
+
         if guild_type == 'Main':
-            self.main_data = self.main_ws.batch_get(['B2:E81'])[0] # [0] for 1st range, if input is ('A1:A2','B1:B2') [0] is A1:A2, [1] is B1:B2
-            self.main_data  = [x for x in self.main_data if x]
+            end = xl_col_to_name(4+len(main_gb_dates)) + '81'
+            self.main_data = self.main_ws.batch_get([f'B2:{end}'],value_render_option=ValueRenderOption.unformatted)[0] # [0] for 1st range, if input is ['A1:A2','B1:B2'] [0] is A1:A2, [1] is B1:B2
+            self.main_data  = [x for x in self.main_data if x[0] != '']
             self.main_data.sort(key=name_sort)
         else:
-            self.sub_data = self.sub_ws.batch_get(['B2:E81'])[0]
-            self.sub_data  = [x for x in self.sub_data if x]
+            end = xl_col_to_name(4+len(sub_gb_dates)) + '81'
+            self.sub_data = self.sub_ws.batch_get([f'B2:{end}'],value_render_option=ValueRenderOption.unformatted)[0]
+            self.sub_data  = [x for x in self.sub_data if x[0] != '']
             self.sub_data.sort(key=name_sort)
 
     async def add_member_to_guild(self, guild: Literal['Main', 'Sub'], member: discord.Member, uid: int):
         to_add = None
+        self.get_data(guild) # refresh the data before adding
         if guild == 'Main':
             to_add = self.main_data
         else:
@@ -102,6 +118,7 @@ class PGR_Guild(commands.Cog):
         await self.update_data(guild)
     
     async def remove_member_from_guild(self, guild: Literal['Main', 'Sub'], uid: int):
+        self.get_data(guild) # refresh the data before removing
         if guild == 'Main':
             self.main_data = [x for x in self.main_data if x[2] != str(uid)]
             self.main_data.sort(key=name_sort)
@@ -119,13 +136,19 @@ class PGR_Guild(commands.Cog):
     
     async def update_data(self, guild: Literal['Main', 'Sub']):
         if guild == 'Main':
+            gb_dates = self.main_ws.row_values(1)[5:]
+            end = xl_col_to_name(4+len(gb_dates)) + '81'
+            self.clear_gb_data(self.main_ws, gb_dates)
             self.main_ws.batch_update([{
-                'range': 'B2:E81',
+                'range': f'B2:{end}',
                 'values': self.main_data,
             }])
         else:
+            gb_dates = self.sub_ws.row_values(1)[5:]
+            end = xl_col_to_name(4+len(gb_dates)) + '81'
+            self.clear_gb_data(self.sub_ws, gb_dates)
             self.sub_ws.batch_update([{
-                'range': 'B2:E81',
+                'range': f'B2:{end}',
                 'values': self.sub_data,
             }])
             
@@ -137,6 +160,7 @@ class PGR_Guild(commands.Cog):
 
     GM = app_commands.Group(name='gm', description='Commands to set Guild Manager', default_permissions=discord.Permissions(administrator=True))
     members = app_commands.Group(name='members', description='Commands to manage guild members', default_permissions=discord.Permissions(ban_members=True))
+    gb = app_commands.Group(name='gb', description='Commands to check guild battle progress')
 
     @app_commands.command(name='link')
     @is_gm()
@@ -204,7 +228,7 @@ class PGR_Guild(commands.Cog):
     async def members_add(self, interaction: discord.Interaction, guild: Choice[int], member: discord.Member, uid: app_commands.Range[int, 10000000, 19999999], add_roles: Optional[bool] = False) -> None:
         """Adds a member to the guild"""
         # Not needed anymore due to app_commands.Range but leaving it here
-        if re.match(r'^1[0-9]{7}$', str(uid)) == None:
+        if re.match(r'^1[0-9]{7}$', str(uid)) is None:
             emb = utl.make_embed(desc="In-game UID is invalid. It must start with a 1 and be 8 numbers in length.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
         else:
@@ -220,13 +244,14 @@ class PGR_Guild(commands.Cog):
                 return
             
             # If the UID is already in the records
-            if any(str(uid) in x for x in data):
-                emb = utl.make_embed(desc=f":x: There is already a member in {guild.name} guild with UID: {uid}.", color=discord.Colour.red())
+            if any(str(uid) in x for x in self.main_data) or any(str(uid) in x for x in self.sub_data) :
+                emb = utl.make_embed(desc=f":x: There is already a member in the guild with UID: {uid}.", color=discord.Colour.red())
                 await interaction.response.send_message(embed=emb, ephemeral=True)
                 return
 
             # If the member is not in the records yet
             if not any(str(member.id) in x for x in data):
+                await interaction.response.defer()
                 await self.add_member_to_guild(guild.name, member, uid)
                 if add_roles:
                     try:
@@ -241,7 +266,7 @@ class PGR_Guild(commands.Cog):
                     except KeyError:
                         pass
                 emb = utl.make_embed(desc=f"Added <@{member.id}> (UID: {uid}) to {guild.name} guild.", color=discord.Colour.green())
-                await interaction.response.send_message(embed=emb)
+                await interaction.followup.send(embed=emb)
                 return
             
             # If member is in the records but with a different UID (for members who play multiple accounts)
@@ -253,12 +278,15 @@ class PGR_Guild(commands.Cog):
             await confirm.send(interaction, f'<@{records[0][0]}> is already in {guild.name} guild with UID: {", ".join(uids)}\nDo you still want to add another record for <@{member.id}> with the UID: {uid}?')
             await confirm.wait()
 
-            if confirm.value == None:
+            if confirm.value is None:
                 raise ViewTimedOutError
             elif confirm.value == 'Confirm':
                 await self.add_member_to_guild(guild.name, member, uid)
                 emb = utl.make_embed(desc=f"Added <@{member.id}> (UID: {uid}) to {guild.name} guild.", color=discord.Colour.green())
-                await interaction.edit_original_response(embed=emb, view=None)
+
+                success = utl.make_embed(desc="Success!", color=discord.Colour.green())
+                await interaction.edit_original_response(embed=success, view=None)
+                await interaction.followup.send(embed=emb)
                 return
     
     @members.command(name='remove')
@@ -295,19 +323,35 @@ class PGR_Guild(commands.Cog):
             await interaction.response.send_message(embed=emb, view=idview, ephemeral=True)
             await idview.wait()
 
-            if idview.value == None:
+            if idview.value is None:
                 raise ViewTimedOutError
             else:
                 await self.remove_member_from_guild(guild.name, int(idview.value))
                 emb = utl.make_embed(desc=f"Removed <@{member.id}> (UID: {idview.value}) from {guild.name} guild.", color=discord.Colour.green())
-                await interaction.edit_original_response(embed=emb, view=None)
+                
+                success = utl.make_embed(desc="Success!", color=discord.Colour.green())
+                await interaction.edit_original_response(embed=success, view=None)
+                await interaction.followup.send(embed=emb)
                 return
         
         # If member has only 1 id
         uid = records[0][2]
+        await interaction.response.defer()
         await self.remove_member_from_guild(guild.name, int(uid))
+        if remove_roles:
+            try:
+                exaltairs = Config.read_config(interaction.guild)["exaltairs_role"]
+                main = Config.read_config(interaction.guild)["main_role"]
+                sub = Config.read_config(interaction.guild)["sub_role"]
+                
+                if guild.name == 'Main':
+                    await member.remove_roles(discord.Object(exaltairs), discord.Object(main))
+                else:
+                    await member.remove_roles(discord.Object(exaltairs), discord.Object(sub))
+            except KeyError:
+                pass
         emb = utl.make_embed(desc=f"Removed <@{member.id}> (UID: {uid}) from {guild.name} guild.", color=discord.Colour.green())
-        await interaction.response.send_message(embed=emb)
+        await interaction.followup.send(embed=emb)
         return
     
     @members.command(name='removebyindex')
@@ -338,13 +382,12 @@ class PGR_Guild(commands.Cog):
             emb = utl.make_embed(desc=f"Index cannot be zero or negative.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
             return
-        
-        # If member has only 1 id
-        removed = data.pop(index-1)
-        await self.clear_data(guild.name)
-        await self.update_data(guild.name)
+
+        await interaction.response.defer()
+        removed = data[index-1]
+        await self.remove_member_from_guild(guild.name, int(removed[2]))
         emb = utl.make_embed(desc=f"Removed <@{removed[0]}> (UID: {removed[2]}) from {guild.name} guild.", color=discord.Colour.green())
-        await interaction.response.send_message(embed=emb)
+        await interaction.followup.send(embed=emb)
         return
     
     @members.command(name='list')
@@ -352,7 +395,7 @@ class PGR_Guild(commands.Cog):
     async def members_list(self, interaction: discord.Interaction) -> None:
         """List members in the guild"""
         emb = discord.Embed(color=discord.Colour.blue())
-        if interaction.guild.icon != None:
+        if interaction.guild.icon is not None:
             emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
             emb.set_thumbnail(url=interaction.guild.icon.url)
         emb.add_field(name='Main', value=f"{len(self.main_data)}/80", inline=True)           
@@ -365,7 +408,7 @@ class PGR_Guild(commands.Cog):
         await interaction.response.send_message(embed=emb, view=show_button)
         await show_button.wait()
 
-        if show_button.value == None:
+        if show_button.value is None:
             return
 
         if show_button.value == 'List Main':
@@ -399,7 +442,6 @@ class PGR_Guild(commands.Cog):
         else:
             data = self.sub_data
 
-        print(data)
         # If member is not in the records yet
         if not any(str(member.id) in x for x in data):
             emb = utl.make_embed(desc=f"<@{member.id}> is not in {guild.name} guild.", color=discord.Colour.red())
@@ -422,7 +464,7 @@ class PGR_Guild(commands.Cog):
             await interaction.response.send_message(embed=emb, view=idview, ephemeral=True)
             await idview.wait()
 
-            if idview.value == None:
+            if idview.value is None:
                 raise ViewTimedOutError
             else:
                 # Changing the real main/sub data
@@ -479,7 +521,7 @@ class PGR_Guild(commands.Cog):
             await interaction.response.send_message(embed=emb, view=idview, ephemeral=True)
             await idview.wait()
 
-            if idview.value == None:
+            if idview.value is None:
                 raise ViewTimedOutError
             else:
                 # Changing the real main/sub data
@@ -522,12 +564,28 @@ class PGR_Guild(commands.Cog):
         else:
             data = self.sub_data
         
+        members_to_remove = []
+        uid_to_remove = []
         for r in data:
-            r[1] = str(interaction.guild.get_member(int(r[0])))
+            m = interaction.guild.get_member(int(r[0]))
+            if m is None:
+                members_to_remove.append(r[1])
+                uid_to_remove.append(r[2])
+            else:
+                r[1] = str(m)
 
-        await self.update_data(guild.name)
-        emb = utl.make_embed(desc=f"Updated the names for members in {guild.name} guild.", color=discord.Colour.green())
+        emb = utl.make_embed(desc='Updating...', color=discord.Colour.yellow())
         await interaction.response.send_message(embed=emb)
+        await self.update_data(guild.name)
+        
+        for u in uid_to_remove:
+            await self.remove_member_from_guild(guild.name, int(u))
+        
+        text = ''
+        if len(uid_to_remove) > 0:
+            text = f'\n:warning: Removed {len(uid_to_remove)} members ({", ".join(members_to_remove)}) because they cannot be found in the server.'
+        emb = utl.make_embed(desc=f"Updated the names for members in {guild.name} guild.{text}", color=discord.Colour.green())
+        await interaction.edit_original_response(embed=emb)
     
     @app_commands.command(name='find')
     @app_commands.describe(member='The member to find')
@@ -597,6 +655,255 @@ class PGR_Guild(commands.Cog):
                 emb = utl.make_embed(title=f"Match found!", desc=f'The UID: {uid} is owned by {members[0]} in {guilds[0]}', color=discord.Colour.green())
             await interaction.response.send_message(embed=emb)
             return
+    
+        
+    def get_progress_up_to_date(self, gb_dates, progress, start_of_week, up_to_before: bool = False):
+        prog = []
+        start_of_week = datetime.datetime.strptime(start_of_week, "%d/%m/%Y")
+        if up_to_before is True:
+            for i in range(len(gb_dates)):
+                if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") < start_of_week:
+                    prog.append(progress[i])
+        else:
+            for i in range(len(gb_dates)):
+                if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") <= start_of_week:
+                    prog.append(progress[i])
+        return prog
+        
+    @gb.command(name='check')
+    @app_commands.describe(member='The member to check')
+    async def gb_check(self, interaction: discord.Interaction, member: Optional[discord.Member] = None):
+        """Check your guild battle progress"""
+        mem = interaction.user
+        # if searching for other member's gb
+        if member is not None:
+            try:
+                id = Config.read_config(interaction.guild)["gm_role"]
+            except KeyError:
+                id = 0
+            if interaction.user.get_role(id) is None:
+                emb = utl.make_embed(desc="You do not have the permission to check other people's guild battle progress.", color=discord.Colour.red())
+                await interaction.response.send_message(embed=emb)
+                return
+            else:
+                mem = member
+        
+        await interaction.response.defer()
+        
+        main = self.main_ws.findall(str(mem.id))
+        sub = self.sub_ws.findall(str(mem.id))
+
+        guild = ''
+        data = None
+        cell = None
+        gb_dates = None
+
+        # if member is not found
+        if len(main) + len(sub) == 0:
+            emb = utl.make_embed(desc=f"Cannot find <@{mem.id}> in guild.", color=discord.Colour.red())
+            await interaction.followup.send(embed=emb)
+            return
+        # if member appears more than one time
+        elif len(main) + len(sub) > 1:
+            # ask which uid to check
+            idview = Button_View(15)
+            for i in main:
+                id = self.main_ws.get(f'D{i.row}')[0][0]
+                idview.add_item(Button_UI(str(id), discord.ButtonStyle.blurple))
+            for i in sub:
+                id = self.sub_ws.get(f'D{i.row}')[0][0]
+                idview.add_item(Button_UI(str(id), discord.ButtonStyle.blurple))
+                
+            emb = utl.make_embed(desc=f'There are multiple accounts for <@{mem.id}> in the guild.\nWhich one do you want to check?', color=discord.Colour.yellow())
+            await interaction.followup.send(embed=emb, view=idview)
+            await idview.wait()
+                
+            if idview.value is None:
+                raise ViewTimedOutError
+            else:
+                await interaction.edit_original_response(content='Done!', embed=None, view=None)
+                cell = self.main_ws.find(idview.value)
+                guild = 'Main Guild'
+                if cell is None:
+                    cell = self.sub_ws.find(idview.value)
+                    guild = 'Sub Guild'
+        else:
+            # if member is only found only once in both guilds
+            if len(main) > 0:
+                cell = main[0]
+                guild = 'Main Guild'
+            else:
+                cell = sub[0]
+                guild = 'Sub Guild'
+        
+        if guild == 'Main Guild':
+            data = self.main_ws.row_values(cell.row, value_render_option=ValueRenderOption.unformatted)
+            gb_dates = self.main_ws.row_values(1)[5:]
+        else:
+            data = self.sub_ws.row_values(cell.row, value_render_option=ValueRenderOption.unformatted)
+            gb_dates = self.sub_ws.row_values(1)[5:]
+
+        # Get the start of this week's date in string
+        today = datetime.date.today()
+        start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%d/%m/%Y")
+        # Member uid from data e.g. ['2', '724646090365050505', 'Bakugan#0000', '10101012', '', False, False, False]
+        uid = data[3]
+        progress = self.get_progress_up_to_date(gb_dates, data[5:], start_of_week, True)
+        # Check the member's gb this week
+        this_week = self.main_ws.find(start_of_week)
+        done = False
+        if this_week is not None:
+            done = self.main_ws.get(f'{xl_col_to_name(this_week.col-1)}{cell.row}', value_render_option=ValueRenderOption.unformatted)
+            if len(done) == 0:
+                done = None
+            else:
+                done = done[0][0]
+       
+        emb = utl.make_gb_progress_embed(interaction, mem, uid, guild, progress, done, gb_dates)
+        await interaction.followup.send(embed=emb)
+
+    @gb.command(name='progress')
+    @app_commands.describe(guild='Which guild to check?', date='The date to check in dd/mm/yyyy format')
+    @app_commands.choices(guild=[
+        Choice(name='Main', value=1),
+        Choice(name='Sub', value=2)
+    ])
+    async def gb_progress(self, interaction: discord.Interaction, guild: Choice[int], date: Optional[str] = None):
+        """Check the guild's weekly progress"""
+        today = datetime.date.today()
+        start_of_week = today - datetime.timedelta(days=today.weekday())
+        
+        if date is not None:
+            try:
+                today = datetime.datetime.strptime(date, "%d/%m/%Y")
+                start_of_week = today - datetime.timedelta(days=today.weekday())
+            except ValueError:
+                emb = utl.make_embed(desc="Entered date is invalid.", color=discord.Colour.red())
+                await interaction.response.send_message(embed=emb, ephemeral=True)
+                return
+        
+        ws = None
+        snowflake = ''
+        if guild.name == 'Main':
+            ws = self.main_ws
+            snowflake = '<:snowflakeblue:918047193464725534>'
+        else:
+            ws = self.sub_ws
+            snowflake = '<:snowflakepink:918047193255002133>'
+
+        start_of_week = start_of_week.strftime("%d/%m/%Y")
+        this_week = ws.find(start_of_week, in_row=1)
+
+        if this_week is None:
+            emb = utl.make_embed(desc=f"There are no records found for {start_of_week}.", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+
+        c = xl_col_to_name(this_week.col-1)
+        name, progress = ws.batch_get(['B2:B81', f'{c}2:{c}81'], value_render_option=ValueRenderOption.unformatted)
+        progress = progress[:len(name)]
+        total = len(name)
+        done = progress.count([True])
+        not_done = progress.count([False])
+        exempted = total-done-not_done
+        
+        icon = ''
+        if interaction.guild.icon != None:
+            icon = interaction.guild.icon.url
+            
+        text = f':white_check_mark: Completed: {done}\n:x: **Not Completed: {not_done}**\n:white_circle: Exempted: {exempted}'
+        emb = discord.Embed(title=f'{snowflake} {guild.name} Guild', description=f':calendar_spiral: **__Week {start_of_week}__**\n⠀')
+        emb.add_field(name=f'Total members: {total}/80',value=text)
+        emb.set_author(name='Guild Battle Weekly Progress', icon_url=icon)
+        emb.set_thumbnail(url=icon)
+        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+
+        show_buttons = Button_View(15)
+        show_buttons.add_item(Button_UI('Completed', discord.ButtonStyle.blurple, disabled=(done == 0)))
+        show_buttons.add_item(Button_UI('Not Completed', discord.ButtonStyle.blurple, disabled=(not_done == 0)))
+        show_buttons.add_item(Button_UI('Exempted', discord.ButtonStyle.blurple, disabled=(exempted == 0)))
+        
+        await interaction.followup.send(embed=emb, view=show_buttons)
+        await show_buttons.wait()
+
+        if show_buttons.value is None:
+            return
+
+        emb = utl.make_embed(title=show_buttons.value)
+        emb.set_author(name='Guild Battle Weekly Progress', icon_url=icon)
+        emb.set_thumbnail(url=icon)
+        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+
+        check = None
+        if show_buttons.value == 'Completed':
+            emb.description = f'**{done} member(s)** have completed Guild Battle for Week {start_of_week}.'
+            check = [True]
+        elif show_buttons.value == 'Not Completed':
+            emb.description = f'**{not_done} member(s)** have not completed Guild Battle for Week {start_of_week}.'
+            check = [False]
+        else:
+            emb.description = f'**{exempted} member(s)** have been exempted from Guild Battle for Week {start_of_week}.'
+            check = []
+        
+        mem = []
+        for i in range(len(name)):
+            if progress[i] == check:
+                mem.append(f'<@{name[i][0]}>')
+        
+        emb.description += '\n\n' + '\n'.join(mem)
+        await interaction.edit_original_response(content='Done!', embed=None, view=None)
+        await interaction.followup.send(embed=emb)
+
+    @gb.command(name='warnings')
+    @is_gm()
+    @app_commands.describe(guild='Which guild to check?')
+    @app_commands.choices(guild=[
+        Choice(name='Main', value=1),
+        Choice(name='Sub', value=2)
+    ])
+    async def gb_warnings(self, interaction: discord.Interaction, guild: Choice[int]):
+        """List the amount of warnings each member in the guild has (mods only)"""
+        await interaction.response.defer()
+        ws = None
+        if guild.name == 'Main':
+            ws = self.main_ws
+            snowflake = '<:snowflakeblue:918047193464725534>'
+        else:
+            ws = self.sub_ws
+            snowflake = '<:snowflakepink:918047193255002133>'
+        
+        # Get the start of this week's date in string
+        today = datetime.date.today()
+        start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%d/%m/%Y")
+
+        headers = ws.row_values(1)
+        gb_dates = headers[5:]
+        c = xl_col_to_name(len(headers)-1)
+        data = ws.batch_get([f'B2:{c}81'], value_render_option=ValueRenderOption.unformatted)[0]
+        data  = [x for x in data if x[0] != ''] # remove empty records (records with no discord ID but added because gb records value exist)
+
+        text = ''
+        for m in data:
+            gb_progress = m[4:]
+            warnings = self.get_progress_up_to_date(gb_dates, gb_progress, start_of_week).count(False)
+            if warnings > 2:
+                text += f'**({m[2]}) <@{m[0]}>: {warnings}**\n'
+            else:
+                text += f'({m[2]}) <@{m[0]}>: {warnings}\n'
+
+        icon = ''
+        if interaction.guild.icon != None:
+            icon = interaction.guild.icon.url
+
+        emb = utl.make_embed(title=':warning: Warnings', desc=text)
+        emb.set_author(name=f'{guild.name} Guild Warnings', icon_url=icon)
+        emb.set_footer(text=self.bot.user, icon_url=self.bot.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+        await interaction.followup.send(embed=emb)
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
