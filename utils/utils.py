@@ -100,7 +100,7 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
             bar += '█'
         for i in range(int(rounded_progress), 20):
             bar += '░'
-        text = f'**__Completion rate:__**\n**║{bar}║ ({progress:g}%)**\n\n`{done} out of {total} guild battles completed since {first_date}`\n⠀'
+        text = f'**__Completion rate:__**\n**║{bar}║ ({progress_percentage:g}%)**\n\n`{done} out of {total} guild battles completed since {first_date}`\n⠀'
 
     g_emoji = ''
     if guild == 'Main Guild':
