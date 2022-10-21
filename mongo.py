@@ -1,8 +1,4 @@
 from typing import List
-from pytz import utc
-
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.mongodb import MongoDBJobStore
 
 from discord import Guild
 
