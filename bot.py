@@ -15,6 +15,8 @@ from groups import Groups
 import scheduler
 import mongo
 from mongo import MongoDB
+
+from cogs.help import Help
 import cogs.ppc
 from cogs.ppc import PPC
 import cogs.guild
@@ -38,6 +40,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix=get_prefix, intents=intents)
+bot.remove_command('help')
 
 @bot.event
 async def on_ready():
@@ -88,6 +91,8 @@ async def add_cogs(gc):
     cogs.tht.THT_Instance = THT(bot)
     cogs.guild.Guild_Instance = PGR_Guild(bot, gc)
     cogs.ppc.PPC_Instance = PPC(bot, gc)
+
+    await bot.add_cog(Help(bot))
     await bot.add_cog(cogs.utilities.Utilities_Instance)
     await bot.add_cog(cogs.warzone.Warzone_Instance)
     await bot.add_cog(cogs.tht.THT_Instance)
