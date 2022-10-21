@@ -23,6 +23,7 @@ class Help(commands.Cog):
 
     @commands.hybrid_command(name='help')
     async def help(self, ctx: commands.Context):
+        """Get help."""
         # starting to build embed
         emb = discord.Embed(title='Help Commands :grey_question:', color=discord.Color.light_gray())
         
