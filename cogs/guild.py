@@ -72,7 +72,7 @@ class PGR_Guild(commands.Cog):
 
         try:
             self.sh = self.gc.open_by_url(os.getenv('EXALTAIR_SPREADSHEET'))
-            self.main_ws = self.sh.worksheet('Main BACKUP')
+            self.main_ws = self.sh.worksheet('Main')
             self.sub_ws = self.sh.worksheet('Sub')
             self.get_data('Main')
             self.get_data('Sub')
