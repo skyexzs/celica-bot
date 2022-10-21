@@ -33,6 +33,7 @@ class Help(commands.Cog):
         emb.set_author(name=ctx.guild.name, icon_url=icon)
         emb.add_field(name=':mag_right:  **__Find__**', value="**/find <member>** : Find a member's UID\n**/find <uid>** : Find a member from a given UID", inline=False)
         emb.add_field(name='<:exaltair_Logo:937199287807377458> **__Guild__**', value="**/gb check** : Check your guild battle progress and warnings\n**/gb progress** : Check the weekly guild battle progress\n", inline=False)
+        emb.add_field(name='<:EXPPC1:1031556662017921064> **__EX-PPC__**', value="**/exppc** : Check required score for achievement roles (EX-PPC)")
         emb.set_footer(text=self.bot.user, icon_url=self.bot.user.display_avatar.url)
         emb.timestamp = datetime.datetime.now()
         await ctx.send(embed=emb)
