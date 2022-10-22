@@ -676,7 +676,7 @@ class PGR_Guild(commands.Cog):
         """Check your guild battle progress"""
         mem = interaction.user
         # if searching for other member's gb
-        if member is not None:
+        if member is not None and member.id != mem.id:
             try:
                 id = Config.read_config(interaction.guild)["gm_role"]
             except KeyError:
