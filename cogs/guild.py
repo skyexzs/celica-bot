@@ -697,6 +697,7 @@ class PGR_Guild(commands.Cog):
         data = None
         cell = None
         gb_dates = None
+        ws = None
 
         # if member is not found
         if len(main) + len(sub) == 0:
@@ -724,17 +725,21 @@ class PGR_Guild(commands.Cog):
                 await interaction.edit_original_response(content='Done!', embed=None, view=None)
                 cell = self.main_ws.find(idview.value)
                 guild = 'Main Guild'
+                ws = self.main_ws
                 if cell is None:
                     cell = self.sub_ws.find(idview.value)
                     guild = 'Sub Guild'
+                    ws = self.sub_ws
         else:
             # if member is only found only once in both guilds
             if len(main) > 0:
                 cell = main[0]
                 guild = 'Main Guild'
+                ws = self.main_ws
             else:
                 cell = sub[0]
                 guild = 'Sub Guild'
+                ws = self.sub_ws
         
         if guild == 'Main Guild':
             data = self.main_ws.row_values(cell.row, value_render_option=ValueRenderOption.unformatted)
@@ -750,10 +755,10 @@ class PGR_Guild(commands.Cog):
         uid = data[3]
         progress = self.get_progress_up_to_date(gb_dates, data[5:], start_of_week, True)
         # Check the member's gb this week
-        this_week = self.main_ws.find(start_of_week)
+        this_week = ws.find(start_of_week)
         done = False
         if this_week is not None:
-            done = self.main_ws.get(f'{xl_col_to_name(this_week.col-1)}{cell.row}', value_render_option=ValueRenderOption.unformatted)
+            done = ws.get(f'{xl_col_to_name(this_week.col-1)}{cell.row}', value_render_option=ValueRenderOption.unformatted)
             if len(done) == 0:
                 done = None
             else:
