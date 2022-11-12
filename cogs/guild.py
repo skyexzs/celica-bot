@@ -108,12 +108,19 @@ class PGR_Guild(commands.Cog):
 
     async def add_member_to_guild(self, guild: Literal['Main', 'Sub'], member: discord.Member, uid: int):
         to_add = None
+        ws = None
         self.get_data(guild) # refresh the data before adding
         if guild == 'Main':
             to_add = self.main_data
+            ws = self.main_ws
         else:
             to_add = self.sub_data
-        to_add.append([str(member.id), str(member), str(uid)])
+            ws = self.sub_ws
+        gb_dates = ws.row_values(1)[5:] # get amount of gb dates in the sheet
+        new_mem = [str(member.id), str(member), str(uid), '']
+        for i in gb_dates:
+            new_mem.append('')
+        to_add.append(new_mem)
         to_add.sort(key=name_sort)
         await self.update_data(guild)
     
@@ -652,7 +659,7 @@ class PGR_Guild(commands.Cog):
                 emb = utl.make_embed(title=f"Duplicate ID found for {uid}!", desc=text, color=discord.Colour.dark_red())
                 emb.set_footer(text=f"There should only be 1 member with the UID {uid}!\nContact the guild management team to fix this.")
             else:
-                emb = utl.make_embed(title=f"Match found!", desc=f'The UID: {uid} is owned by {members[0]} in {guilds[0]}', color=discord.Colour.green())
+                emb = utl.make_embed(title=f"Match found!", desc=f'The UID: {uid} is owned by <@{members[0]}> in {guilds[0]}', color=discord.Colour.green())
             await interaction.response.send_message(embed=emb)
             return
     
@@ -662,12 +669,18 @@ class PGR_Guild(commands.Cog):
         start_of_week = datetime.datetime.strptime(start_of_week, "%d/%m/%Y")
         if up_to_before is True:
             for i in range(len(gb_dates)):
-                if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") < start_of_week:
-                    prog.append(progress[i])
+                try:
+                    if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") < start_of_week:
+                        prog.append(progress[i])
+                except IndexError:
+                    prog.append('')
         else:
             for i in range(len(gb_dates)):
-                if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") <= start_of_week:
-                    prog.append(progress[i])
+                try:
+                    if datetime.datetime.strptime(gb_dates[i], "%d/%m/%Y") <= start_of_week:
+                        prog.append(progress[i])
+                except IndexError:
+                    prog.append('')
         return prog
         
     @gb.command(name='check')
@@ -872,7 +885,6 @@ class PGR_Guild(commands.Cog):
     ])
     async def gb_warnings(self, interaction: discord.Interaction, guild: Choice[int]):
         """List the amount of warnings each member in the guild has (mods only)"""
-        await interaction.response.defer()
         ws = None
         if guild.name == 'Main':
             ws = self.main_ws
@@ -880,6 +892,8 @@ class PGR_Guild(commands.Cog):
         else:
             ws = self.sub_ws
             snowflake = '<:snowflakepink:918047193255002133>'
+        
+        await interaction.response.defer()
         
         # Get the start of this week's date in string
         today = datetime.date.today()
@@ -910,9 +924,71 @@ class PGR_Guild(commands.Cog):
         emb.timestamp = datetime.datetime.now()
         await interaction.followup.send(embed=emb)
 
+    @gb.command(name='adddates')
+    @is_gm()
+    async def gb_adddates(self, interaction: discord.Interaction):
+        """Adds a new gb date to the spreadsheet (mods only)"""
+        # Get the start of this week's date in string
+        today = datetime.date.today()
+        start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%d/%m/%Y")
+
+        await interaction.response.defer()
+        
+        emb = None
+        exist = True
+        ws = [self.main_ws, self.sub_ws]
+
+        for s in ws:
+            # Get available gb dates
+            headers = s.row_values(1)
+            gb_dates = headers[5:]
+        
+            if start_of_week in gb_dates:
+                continue
+            else:
+                exist = False
+                s.update_cell(1, 6+len(gb_dates), "'" + start_of_week)
+                s.format(f"{xl_col_to_name(5+len(gb_dates))}1", {
+                    "textFormat": {"bold": True},
+                    "horizontalAlignment": "LEFT",
+                    "borders": {
+                        "top": {
+                            "style": "SOLID"
+                        },
+                        "bottom": {
+                            "style": "SOLID"
+                        },
+                        "left": {
+                            "style": "SOLID"
+                        },
+                        "right": {
+                            "style": "SOLID"
+                        }
+                    }
+                })
+                requests = {"requests": [
+                    {
+                        "repeatCell": {
+                            "cell": {"dataValidation": {"condition": {"type": "BOOLEAN"}}, "userEnteredValue": {"boolValue": False}},
+                            "range": {"sheetId": s.id, "startRowIndex": 1, "endRowIndex": 81, "startColumnIndex": 5+len(gb_dates), "endColumnIndex": 6+len(gb_dates)},
+                            "fields": "*"
+                        }
+                    }
+                ]}
+                self.sh.batch_update(requests)
+                emb = utl.make_embed(desc=f"Added a new guild battle date entry for '{start_of_week}'.", color=discord.Colour.green())
+
+        if exist is True:
+            emb = utl.make_embed(desc=f"The guild battle date '{start_of_week}' already exist.", color=discord.Colour.red())
+
+        await interaction.edit_original_response(embed=emb)
+
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())
-            await interaction.response.send_message(embed=emb, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=emb, ephemeral=True)
+            except discord.errors.InteractionResponded:
+                await interaction.edit_original_response(embed=emb)
 
 Guild_Instance : PGR_Guild

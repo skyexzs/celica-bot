@@ -84,14 +84,14 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     
     first_date = start_of_week
 
+    done = progress.count(True)
+    warnings = progress.count(False)
+    exempted = progress.count('')
+    total = len(progress)-exempted
+
     if len(gb_dates) > 0:
         first_date = gb_dates[0]
-    if len(progress) != 0:
-        done = progress.count(True)
-        warnings = progress.count(False)
-        exempted = progress.count('')
-        total = len(progress)-len(exempted)
-
+    if total != 0:
         progress_percentage = round(done / total * 100, 2)
         rounded_progress = int(round(progress_percentage * 2 / 10))
         bar = ''
