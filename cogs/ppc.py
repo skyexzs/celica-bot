@@ -1,7 +1,11 @@
 import os
+import re
 import math
 import datetime
+import requests
 from typing import List
+from gspread.utils import ValueRenderOption
+from itertools import groupby
 
 import discord
 from discord.ext import commands
@@ -37,7 +41,7 @@ def is_owner(interaction: discord.Interaction) -> bool:
     return interaction.user.id == 150826178842722304
 
 class EX_PPC_BOSSES_DROPDOWN(discord.ui.Select):
-    def __init__(self, parent, bosses: List[str], boss_icons):
+    def __init__(self, parent, bosses: List[str], boss_icons, min_val, max_val):
         options = []
         for b in bosses:
             e = None
@@ -46,18 +50,18 @@ class EX_PPC_BOSSES_DROPDOWN(discord.ui.Select):
                 e = icon[0]['emoji']
             options.append(discord.SelectOption(label=b, value=b, emoji=e))
 
-        super().__init__(placeholder='Tap to select bosses...', min_values=3, max_values=3, options=options)
+        super().__init__(placeholder='Tap to select bosses...', min_values=min_val, max_values=max_val, options=options)
         self.parent = parent
 
     async def callback(self, interaction: discord.Interaction):
         await self.parent.callback(interaction)
 
 class EX_PPC_BOSSES_VIEW(discord.ui.View):
-    def __init__(self, bosses: List[str], boss_icons, timeout = 30):
+    def __init__(self, bosses: List[str], boss_icons, min_val, max_val, timeout = 30):
         super().__init__()
 
         # Adds the dropdown to our view object.
-        self.dropdown = EX_PPC_BOSSES_DROPDOWN(self, bosses, boss_icons)
+        self.dropdown = EX_PPC_BOSSES_DROPDOWN(self, bosses, boss_icons, min_val, max_val)
         self.add_item(self.dropdown)
         self.timeout = timeout
         self.success = False
@@ -68,6 +72,36 @@ class EX_PPC_BOSSES_VIEW(discord.ui.View):
         self.success = True
         self.values = self.dropdown.values
         self.stop()
+
+# The ['Boss_Button_View'] bit is for type hinting purposes to tell your IDE or linter
+# what the type of `self.view` is. It is not required.
+class Boss_Button_UI(discord.ui.Button['Boss_Button_View']):
+    def __init__(self, emoji: str, emb: discord.Embed, id: str, disabled: bool = False):
+        super().__init__(emoji=emoji, style=discord.ButtonStyle.primary, disabled=disabled)
+        self.emb = emb
+        self.id = id
+    
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        await self.view.callback(interaction, self.id, self.emb)
+
+class Boss_Button_View(discord.ui.View):
+    def __init__(self, ss_emb: discord.Embed, splus_emb: discord.Embed, timeout = 120):
+        super().__init__()
+        self.ss_btn = Boss_Button_UI('<:SS:1041604124942270514>', emb=ss_emb, id='ss', disabled=True)
+        self.splus_btn = Boss_Button_UI('<:SSSPlus:1041604127773442058>', emb=splus_emb, id='splus')
+        self.add_item(self.ss_btn)
+        self.add_item(self.splus_btn)
+        self.timeout = timeout
+    
+    async def callback(self, interaction: discord.Interaction, btn_id: str, emb: discord.Embed):
+        if btn_id == 'ss':
+            self.ss_btn.disabled = True
+            self.splus_btn.disabled = False
+        else:
+            self.ss_btn.disabled = False
+            self.splus_btn.disabled = True
+        await interaction.response.edit_message(embed=emb, view=self)
 
 class PPC(commands.Cog):
     def __init__(self, bot: commands.Bot, gc):
@@ -127,7 +161,7 @@ class PPC(commands.Cog):
     @app_commands.command(name="exppc")
     async def exppc(self, interaction: discord.Interaction) -> None:
         """Get EX-PPC Scores required for Achievement Roles"""
-        dropdown = EX_PPC_BOSSES_VIEW(self.bosses, self.boss_icons)
+        dropdown = EX_PPC_BOSSES_VIEW(self.bosses, self.boss_icons, min_val=3, max_val=3)
 
         emb = discord.Embed(
             title="EX-PPC Scores",
@@ -208,6 +242,144 @@ class PPC(commands.Cog):
         await interaction.edit_original_response(embed=success, view=None)
         await interaction.followup.send(embed=emb)
     
+    @app_commands.command(name="boss")
+    async def boss(self, interaction: discord.Interaction) -> None:
+        """Get EX-PPC bosses information from spreadsheet."""
+
+        dropdown = EX_PPC_BOSSES_VIEW(self.bosses, self.boss_icons, min_val=1, max_val=1)
+
+        emb = discord.Embed(
+            title="EX-PPC Bosses",
+            description="Select a boss from the list below to get their scores.",
+            color=discord.Colour.blue())
+
+        emb.set_author(name=interaction.guild.name)
+        if interaction.guild.icon != None:
+            emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+            emb.set_thumbnail(url=interaction.guild.icon.url)
+
+        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+
+        await interaction.response.send_message(embed=emb, view=dropdown, ephemeral=True)
+        await dropdown.wait()
+
+        # if the dropdown view timed out
+        if dropdown.success is False:
+            raise ViewTimedOutError
+
+        # for testing
+        # dropdown.values = ['Sharkspeare']
+
+        thb = ''
+        emoji = ''
+        for i in self.boss_icons:
+            if i['_id'] == dropdown.values[0]:
+                thb = i['thumbnail']
+                emoji = i['emoji']
+
+        diff = ['Test','Elite','Knight','Chaos','Hell']
+
+        # Create SS Embed Template
+        ss_emb = discord.Embed(
+            title=f"{emoji} {dropdown.values[0]} Scores (SS Sheet) <:SS:1041604124942270514>",
+            color=discord.Colour.blue())
+        ss_emb.set_author(name=interaction.guild.name)
+        if interaction.guild.icon != None:
+            ss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+            ss_emb.set_thumbnail(url=thb)
+        ss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        ss_emb.timestamp = datetime.datetime.now()
+
+        # Get score data from the SS sheet
+        ssws = self.ss_sh.worksheet(dropdown.values[0])
+        scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
+        c = 0
+        for s in scores:
+            # example data: [[20262, '', '=HYPERLINK("https://youtu.be/oWRo7r32nfM", "0:09")'], []]
+            # if it's not a row divider but a score entry
+            if len(s) != 0:
+                score = s[0]
+                x = re.search(r'\(\"(.*)\",\"(.*)\"\)', s[2].replace(' ', ''))
+                link = ''
+                time = ''
+                if x != None:
+                    link, time = x.groups()
+                else:
+                    time = s[2]
+
+                text = f'Score: **{score}**\nTime: **{time}**\n'
+                
+                if link != '':
+                    text += f'**[Example]({link})**'
+
+                ss_emb.add_field(name=diff[c], value=text, inline=True)
+                c += 1
+        
+        # Create Whale Embed Template
+        emb = discord.Embed(
+            title=f"{emoji} {dropdown.values[0]} Scores (Whale Sheet) <:SSSPlus:1041604127773442058>",
+            color=discord.Colour.blue())
+        emb.set_author(name=interaction.guild.name)
+        if interaction.guild.icon != None:
+            emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+            emb.set_thumbnail(url=thb)
+        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+
+        split_condition = lambda x: x == []
+        wws = self.whale_sh.worksheet(dropdown.values[0])
+        col = wws.col_values(3)[2:]
+        data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
+        #print(data)
+        grouper = groupby(data, key=split_condition)
+        scores = [list(group) for key, group in grouper if not key]
+        #print(scores)
+
+        # Get hyperlink data from Whale sheet
+        links = []
+        ranges = ''
+        row = 3
+        for d in data:
+            if len(d) != 0:
+                ranges += f'ranges={dropdown.values[0]}!H{row}&'
+            row += 1
+        
+        if ranges != '':
+            url = f'https://sheets.googleapis.com/v4/spreadsheets/1YzOGbhTKaGTzfGbQJDdI6PSw8lXxcDpEQeeVLF4u2Dw?{ranges}fields=sheets(data(rowData(values(hyperlink))))'
+            res = requests.get(url, headers={"Authorization": "Bearer " + self.gc.auth.token})
+            links = res.json()['sheets'][0]['data']
+            for i in range(len(links)):
+                if len(links[i]) == 0:
+                    links[i] = ''
+                else:
+                    links[i] = links[i]['rowData'][0]['values'][0]['hyperlink']
+
+        # Add a field for each score
+        c = 0
+        for i in range(len(scores)):
+            for sc in scores[i]:
+                text = f'Score: **{sc[0]}**\nTime: **{sc[1]}**\n'
+                for j in sc[2:]:
+                    try:
+                        char = j.split('\n')
+                        text += f'**{char[0]}**: {char[1]}\n'
+                    except IndexError:
+                        continue
+                if len(links) != 0:
+                    if links[c] != '':
+                        text += f'**[Example]({links[c]})**'
+                    c += 1
+                emb.add_field(name=diff[i], value=text, inline=True)
+
+        # Button for pagination
+        pagination = Boss_Button_View(ss_emb, emb)
+
+        # Send message
+        success = utl.make_embed(desc="Success!", color=discord.Colour.green())
+        await interaction.edit_original_response(embed=success, view=None)
+        await interaction.followup.send(embed=ss_emb, view=pagination)
+
     @app_commands.command(name="exppc_update")
     @app_commands.default_permissions(administrator=True)
     @app_commands.check(is_owner)

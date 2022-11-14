@@ -146,7 +146,7 @@ class THT_Modal(discord.ui.Modal, title="Create a THT Event"):
         label='name',
         placeholder='Enter a name for the THT event...',
         min_length=5,
-        max_length=30
+        max_length=100
     )
     description = discord.ui.TextInput(
         label='Description',
@@ -154,13 +154,13 @@ class THT_Modal(discord.ui.Modal, title="Create a THT Event"):
         default='Please check <#942612957047717909> for more information.',
         required=False,
         style=discord.TextStyle.long,
-        max_length=150
+        max_length=500
     )
     requirements = discord.ui.TextInput(
         label='Requirements',
         placeholder='Enter a requirement for the submission...',
         required=False,
-        max_length=100
+        max_length=250
     )
     start_date = discord.ui.TextInput(
         label='Start Date',
@@ -172,7 +172,7 @@ class THT_Modal(discord.ui.Modal, title="Create a THT Event"):
         label='Custom Thumbnail URL',
         placeholder='https://',
         required=False,
-        max_length=200
+        max_length=250
     )
 
     async def on_submit(self, interaction: discord.Interaction):

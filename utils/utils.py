@@ -128,6 +128,14 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     if warnings > 0:
         emb.add_field(name=':warning: Warnings', value=f'You have {warnings} warning(s) for previously missing a guild battle.', inline=False)
 
+    if member.joined_at != None:
+        jointime = member.joined_at.astimezone(tz=datetime.timezone(datetime.timedelta(hours=8)))
+        jointime = jointime.strftime("%d/%m/%Y ")
+        boost = '\u200b'
+        if member.premium_since != None:
+            boost = '**<:boost:1041634239541686272> Thanks for boosting this server! ❤️**'
+        emb.add_field(name=f'\u200b\n:pencil: You joined this server on {jointime}', value=boost, inline=False)
+
     emb.set_footer(text=f'〆 Exaltair • {guild}')
     emb.timestamp = datetime.datetime.now()
 
