@@ -19,13 +19,14 @@ class ReactionDataEmptyError(discord.app_commands.AppCommandError):
     pass
 
 class ReactData():
-    def __init__(self, message: str, type: Literal['message', 'reply', 'reaction', 'sticker', 'dm'], response: list):
+    def __init__(self, message: str, type: Literal['message', 'reply', 'reaction', 'sticker', 'dm'], wildcard: bool, response: list):
         self.message = message
         self.type = type
+        self.wildcard = wildcard
         self.response = response
     
     def get_dict(self):
-        return {'message': self.message, 'type': self.type, 'response': self.response}
+        return {'message': self.message, 'type': self.type, 'wildcard': self.wildcard, 'response': self.response}
 
 class Reaction(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -76,26 +77,35 @@ class Reaction(commands.Cog):
         
         message = msg.content.lower().strip()
         
-        response_data = [reaction_data[r] for r in reaction_data if reaction_data[r]['message'] == message]
+        response_data = []
+        
+        for r in reaction_data:
+            if reaction_data[r]['wildcard'] is True:
+                if reaction_data[r]['message'] in message:
+                    response_data.append(reaction_data[r])
+            else:
+                if reaction_data[r]['message'] == message:
+                    response_data.append(reaction_data[r])
         
         if len(response_data) == 0:
             return
         
-        type = response_data[0]['type']
-        response = response_data[0]['response']
+        for r in response_data:
+            type = r['type']
+            response = r['response']
 
-        response = random.choice(response)
+            response = random.choice(response)
 
-        if type == 'message':
-            await msg.channel.send(response)
-        elif type == 'reply':
-            await msg.reply(response)
-        elif type == 'reaction':
-            await msg.add_reaction(self.bot.get_emoji(int(response)))
-        elif type == 'sticker':
-            await msg.channel.send(stickers=[await msg.guild.fetch_sticker(int(response))])
-        else:
-            await msg.author.send(response)
+            if type == 'message':
+                await msg.channel.send(response)
+            elif type == 'reply':
+                await msg.reply(response)
+            elif type == 'reaction':
+                await msg.add_reaction(self.bot.get_emoji(int(response)))
+            elif type == 'sticker':
+                await msg.channel.send(stickers=[await msg.guild.fetch_sticker(int(response))])
+            else:
+                await msg.author.send(response)
     
     rc = app_commands.Group(name='reaction', description='Commands to set Reaction stuffs', default_permissions=discord.Permissions(administrator=True))
     
@@ -103,6 +113,7 @@ class Reaction(commands.Cog):
     @app_commands.describe(
         message='What message to respond to?',
         type='What type of response should it be (message, reply, reaction, sticker)',
+        wildcard='Should the command be searched anywhere in the message (True) or only if exact match (False).',
         response="What's the response? Use '|' to make randomized replies.")
     @app_commands.choices(type=[
         Choice(name='message', value=1),
@@ -111,7 +122,7 @@ class Reaction(commands.Cog):
         Choice(name='sticker', value=4),
         Choice(name='dm', value=5)
     ])
-    async def reaction_add(self, interaction: discord.Interaction, message: str, type: Choice[int], response: str) -> None:
+    async def reaction_add(self, interaction: discord.Interaction, message: str, type: Choice[int], wildcard: bool, response: str) -> None:
         """Add a new reaction response"""
         sticker = None
         response = response.split('|')
@@ -135,7 +146,7 @@ class Reaction(commands.Cog):
                 return
     
         message = message.lower().strip()
-        reaction_data = ReactData(message, type.name, response)
+        reaction_data = ReactData(message, type.name, wildcard, response)
 
         self.add_reaction_data(interaction.guild, reaction_data)
 
@@ -191,7 +202,6 @@ class Reaction(commands.Cog):
             else:
                 emb = utl.make_embed(desc="There is no sticker in that message.", color=discord.Colour.red())
         except:
-            raise
             emb = utl.make_embed(desc=f"Failed to retrieve message ID: {msg_id} from this channel.", color=discord.Colour.red())
         await interaction.response.send_message(embed=emb, ephemeral=True)
 
@@ -199,8 +209,7 @@ class Reaction(commands.Cog):
         if isinstance(error, ReactionDataEmptyError):
             emb = utl.make_embed(desc=f"There is no reaction added yet.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
-            return
-        if isinstance(error, app_commands.CheckFailure):
+        elif isinstance(error, app_commands.CheckFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
 
