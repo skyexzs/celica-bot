@@ -5,6 +5,7 @@ import datetime
 import requests
 from typing import List
 from gspread.utils import ValueRenderOption
+from gspread.exceptions import WorksheetNotFound
 from itertools import groupby
 
 import discord
@@ -273,10 +274,12 @@ class PPC(commands.Cog):
 
         thb = ''
         emoji = ''
+        aliases = []
         for i in self.boss_icons:
             if i['_id'] == dropdown.values[0]:
                 thb = i['thumbnail']
                 emoji = i['emoji']
+                aliases = i['aliases']
 
         diff = ['Test','Elite','Knight','Chaos','Hell']
 
@@ -292,7 +295,14 @@ class PPC(commands.Cog):
         ss_emb.timestamp = datetime.datetime.now()
 
         # Get score data from the SS sheet
-        ssws = self.ss_sh.worksheet(dropdown.values[0])
+        ssws = None
+        for a in aliases:
+            try:
+                ssws = self.ss_sh.worksheet(a)
+                break
+            except WorksheetNotFound:
+                continue
+
         scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
         c = 0
         for s in scores:
@@ -327,8 +337,15 @@ class PPC(commands.Cog):
         emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
         emb.timestamp = datetime.datetime.now()
 
+        # Get score data from the SS sheet
         split_condition = lambda x: x == []
-        wws = self.whale_sh.worksheet(dropdown.values[0])
+        wws = None
+        for a in aliases:
+            try:
+                wws = self.whale_sh.worksheet(a)
+                break
+            except WorksheetNotFound:
+                continue
         col = wws.col_values(3)[2:]
         data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
         #print(data)

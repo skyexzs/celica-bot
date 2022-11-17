@@ -1,6 +1,8 @@
 
 .env
 configs/
+groups/
+reactions/
 err.log
 *.pyc
 service_account.json

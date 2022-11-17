@@ -17,16 +17,18 @@ import mongo
 from mongo import MongoDB
 
 from cogs.help import Help
-import cogs.ppc
 from cogs.ppc import PPC
-import cogs.guild
+import cogs.ppc
 from cogs.guild import PGR_Guild
-import cogs.tht
+import cogs.guild
 from cogs.tht import THT
-import cogs.utilities
+import cogs.tht
 from cogs.utilities import Utilities
-import cogs.warzone
+import cogs.utilities
 from cogs.warzone import Warzone
+import cogs.warzone
+from cogs.reaction import Reaction
+import cogs.reaction
 from utils.utils import ViewTimedOutError
 
 def get_prefix(client, message):
@@ -60,15 +62,19 @@ async def on_error(event, *args, **kwargs):
             timezone = pytz.timezone("Asia/Jakarta")
             today = datetime.datetime.today().astimezone(timezone).strftime("%Y-%m-%d %H-%M-%S")
             f.write(f'{today} (UTC+7)\nUnhandled message: {event} {args[0]}\n{sys.exc_info()}\n')
+            print('Error logged!')
         else:
             raise
 
 @bot.event
 async def on_message(msg: discord.Message):
+    if msg.author.bot:
+        return
+    if msg.guild is None:
+        return
     try:
-        if not(msg.author.bot):
-            if discord.utils.find(lambda m: m.id == bot.user.id, msg.mentions) != None:
-                await msg.channel.send("Hi! My prefix for this server is *" + Config.read_config(msg.guild)["command_prefix"] +"*")
+        if discord.utils.find(lambda m: m.id == bot.user.id, msg.mentions) != None:
+            await msg.channel.send("Hi! My prefix for this server is *" + Config.read_config(msg.guild)["command_prefix"] +"*")
     except:
         raise
 
@@ -91,6 +97,7 @@ async def add_cogs(gc):
     cogs.tht.THT_Instance = THT(bot)
     cogs.guild.Guild_Instance = PGR_Guild(bot, gc)
     cogs.ppc.PPC_Instance = PPC(bot, gc)
+    cogs.reaction.Reaction_Instance = Reaction(bot)
 
     await bot.add_cog(Help(bot))
     await bot.add_cog(cogs.utilities.Utilities_Instance)
@@ -98,6 +105,7 @@ async def add_cogs(gc):
     await bot.add_cog(cogs.tht.THT_Instance)
     await bot.add_cog(cogs.guild.Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
     await bot.add_cog(cogs.ppc.PPC_Instance)
+    await bot.add_cog(cogs.reaction.Reaction_Instance)
     
 # try:
 #     bot.loop.create_task(scheduler.run_scheduler(os.getenv('MONGODB_CONN')))

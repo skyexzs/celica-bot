@@ -199,6 +199,8 @@ class THT(commands.Cog):
     async def on_message(self, msg: discord.Message):
         if msg.author.bot:
             return
+        if msg.guild is None:
+            return
             
         """ code for development in Test Server"""
         #if msg.guild.id != 487100763684864010:
