@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import emojis
 from pathlib import Path
 from typing import Literal
 
@@ -101,7 +102,11 @@ class Reaction(commands.Cog):
             elif type == 'reply':
                 await msg.reply(response)
             elif type == 'reaction':
-                await msg.add_reaction(self.bot.get_emoji(int(response)))
+                try:
+                    int(response)
+                    await msg.add_reaction(self.bot.get_emoji(int(response)))
+                except ValueError:
+                    await msg.add_reaction(emojis.encode(response))
             elif type == 'sticker':
                 await msg.channel.send(stickers=[await msg.guild.fetch_sticker(int(response))])
             else:
@@ -137,8 +142,12 @@ class Reaction(commands.Cog):
                 return
         elif type.name == 'reaction':
             try:
-                for r in response:
-                    if self.bot.get_emoji(int(r)) == None:
+                for i in range(len(response)):
+                    e = emojis.get(emojis.encode(response[i]))
+                    if len(e) > 0:
+                        response[i] = emojis.decode(e.pop())
+                        continue
+                    if self.bot.get_emoji(int(response[i])) == None:
                         raise
             except:
                 emb = utl.make_embed(desc=f"Emoji cannot be used by the bot.", color=discord.Colour.red())

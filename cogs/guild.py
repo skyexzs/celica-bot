@@ -443,6 +443,7 @@ class PGR_Guild(commands.Cog):
     ])
     async def members_edituid(self, interaction: discord.Interaction, guild: Choice[int], member: discord.Member, uid: app_commands.Range[int, 10000000, 19999999]):
         """Edit a member's UID"""
+        self.get_data(guild.name)
         data = None
         if guild.name == 'Main':
             data = self.main_data
@@ -506,6 +507,7 @@ class PGR_Guild(commands.Cog):
     ])
     async def members_nick(self, interaction: discord.Interaction, guild: Choice[int], member: discord.Member, nickname: str):
         """Set a nickname for the member"""
+        self.get_data(guild.name)
         data = None
         if guild.name == 'Main':
             data = self.main_data
@@ -565,6 +567,7 @@ class PGR_Guild(commands.Cog):
     ])
     async def members_update(self, interaction: discord.Interaction, guild: Choice[int]) -> None:
         """Update the discord names of members in the guild"""
+        self.get_data(guild.name)
         data = None
         if guild.name == 'Main':
             data = self.main_data
