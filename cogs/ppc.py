@@ -345,7 +345,7 @@ class PPC(commands.Cog):
         if len(aliases) > 1:
             alias = aliases[1]
 
-        wws = self.whale_sh.worksheet(aliases[1])
+        wws = self.whale_sh.worksheet(alias)
 
         col = wws.col_values(3)[2:]
         data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
