@@ -337,15 +337,16 @@ class PPC(commands.Cog):
         emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
         emb.timestamp = datetime.datetime.now()
 
-        # Get score data from the SS sheet
+        # Get score data from the Whale sheet
         split_condition = lambda x: x == []
         wws = None
-        for a in aliases:
-            try:
-                wws = self.whale_sh.worksheet(a)
-                break
-            except WorksheetNotFound:
-                continue
+        
+        alias = aliases[0]
+        if len(aliases) > 1:
+            alias = aliases[1]
+
+        wws = self.whale_sh.worksheet(aliases[1])
+
         col = wws.col_values(3)[2:]
         data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
         #print(data)
@@ -359,7 +360,7 @@ class PPC(commands.Cog):
         row = 3
         for d in data:
             if len(d) != 0:
-                ranges += f'ranges={dropdown.values[0]}!H{row}&'
+                ranges += f'ranges={alias}!H{row}&'
             row += 1
         
         if ranges != '':
