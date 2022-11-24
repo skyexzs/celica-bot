@@ -211,7 +211,7 @@ class PPC(commands.Cog):
                     alias = aliases[i][1]
 
                 wws = self.whale_sh.worksheet(alias)
-                raw_whale_total = int(wws.acell(WHALE_TOTAL_SCORE_CELL).value)
+                raw_whale_total += int(wws.acell(WHALE_TOTAL_SCORE_CELL).value)
         except:
             raw_whale_total = 0
 
