@@ -109,8 +109,6 @@ class PPC(commands.Cog):
         self.bot = bot
         self.gc = gc
         self.bosses = []
-        self.ss_scores = {}
-        self.whale_scores = {}
         self.boss_icons = []
 
         try:
@@ -125,7 +123,6 @@ class PPC(commands.Cog):
             self.boss_icons = mongo.Mongo_Instance.get_resources('boss_icons', {})
 
             self.bosses.clear()
-            self.ss_scores.clear()
 
             # --- SS Spreadsheet --- #
             ss_ws = self.ss_sh.worksheets()[2:]
@@ -139,23 +136,6 @@ class PPC(commands.Cog):
                 if len(record) > 0:
                     title = record[0]['_id']
                     self.bosses.append(title)
-                    # Get score value from SS spreadsheet cell and save it in memory
-                    self.ss_scores[title] = ws.acell(SS_TOTAL_SCORE_CELL).value
-
-            # --- Whale Spreadsheet --- #
-            whale_ws = self.whale_sh.worksheets()[2:]
-
-            for ws in whale_ws:
-                # Get the bosses and check with aliases to change it into universal key
-                title = ws.title.strip()
-                
-                record = [r for r in self.boss_icons if title in r['aliases']]
-
-                if len(record) > 0:
-                    title = record[0]['_id']
-                    # Get score value from whale spreadsheet cell and save it in memory
-                    self.whale_scores[title] = ws.acell(WHALE_TOTAL_SCORE_CELL).value
-
         except:
             raise
 
@@ -190,13 +170,17 @@ class PPC(commands.Cog):
         icon0 = ''
         icon1 = ''
         icon2 = ''
+        aliases = []
         for i in self.boss_icons:
             if i['_id'] == dropdown.values[0]:
                 icon0 = i['emoji'] + ' '
+                aliases.append(i['aliases'])
             if i['_id'] == dropdown.values[1]:
                 icon1 = i['emoji'] + ' '
+                aliases.append(i['aliases'])
             if i['_id'] == dropdown.values[2]:
                 icon2 = i['emoji'] + ' '
+                aliases.append(i['aliases'])
 
         emb = discord.Embed(
             title=f"{icon0}{dropdown.values[0]} - {icon1}{dropdown.values[1]} - {icon2}{dropdown.values[2]}",
@@ -211,15 +195,23 @@ class PPC(commands.Cog):
         
         # These are differentiated so it will still run if one fails
         try:
-            for v in dropdown.values:
+            for i in range(len(dropdown.values)):
                 # Get from SS scores
-                raw_ss_total += int(self.ss_scores[v])
+                alias = aliases[i][0]
+                ssws = self.ss_sh.worksheet(alias)
+
+                raw_ss_total += int(ssws.acell(SS_TOTAL_SCORE_CELL).value)
         except :
             raw_ss_total = 0
         try:
-            for v in dropdown.values:
+            for i in range(len(dropdown.values)):
                 # Get from Whale scores
-                raw_whale_total += int(self.whale_scores[v])
+                alias = aliases[i][0]
+                if len(aliases[i]) > 1:
+                    alias = aliases[i][1]
+
+                wws = self.whale_sh.worksheet(alias)
+                raw_whale_total = int(wws.acell(WHALE_TOTAL_SCORE_CELL).value)
         except:
             raw_whale_total = 0
 
