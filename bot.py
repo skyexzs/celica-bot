@@ -27,8 +27,7 @@ from cogs.utilities import Utilities
 import cogs.utilities
 from cogs.warzone import Warzone
 import cogs.warzone
-from cogs.reaction import Reaction
-import cogs.reaction
+
 from utils.utils import ViewTimedOutError
 
 def get_prefix(client, message):
@@ -91,13 +90,34 @@ async def on_app_command_error(interaction: discord.Interaction, error):
         raise
         #print(error)
 
+def is_owner():
+    def predicate(ctx: commands.Context):
+        return ctx.author.id == 150826178842722304
+    return commands.check(predicate)
+
+@bot.command()
+@is_owner()
+async def reload(ctx: commands.Context, cog: str):
+    if cog == 'reaction':
+        await bot.reload_extension('cogs.reaction')
+        await ctx.send(f"Cog '{cog}' reloaded.")
+    else:
+        await ctx.send("Available arguments: reaction")
+
+@reload.error
+async def reload_error(ctx: commands.Context, error: commands.CommandError):
+        """Handle errors for the reload command."""
+        if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
+            await ctx.send("You have no permission to run this command.")
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Available arguments: reaction")
+
 async def add_cogs(gc):
     cogs.utilities.Utilities_Instance = Utilities(bot)
     cogs.warzone.Warzone_Instance = Warzone(bot)
     cogs.tht.THT_Instance = THT(bot)
     cogs.guild.Guild_Instance = PGR_Guild(bot, gc)
     cogs.ppc.PPC_Instance = PPC(bot, gc)
-    cogs.reaction.Reaction_Instance = Reaction(bot)
 
     await bot.add_cog(Help(bot))
     await bot.add_cog(cogs.utilities.Utilities_Instance)
@@ -105,7 +125,8 @@ async def add_cogs(gc):
     await bot.add_cog(cogs.tht.THT_Instance)
     await bot.add_cog(cogs.guild.Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
     await bot.add_cog(cogs.ppc.PPC_Instance)
-    await bot.add_cog(cogs.reaction.Reaction_Instance)
+
+    await bot.load_extension('cogs.reaction')
     
 # try:
 #     bot.loop.create_task(scheduler.run_scheduler(os.getenv('MONGODB_CONN')))

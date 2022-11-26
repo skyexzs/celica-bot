@@ -77,6 +77,7 @@ def make_embed(title="", desc="", color=discord.Colour.teal(), name="", value="â
 def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Member, uid, guild, progress, this_week: bool, gb_dates):
     text = ''
     warnings = 0
+    warn_dates = ''
 
     today = datetime.date.today()
     start_of_week = today - datetime.timedelta(days=today.weekday())
@@ -88,6 +89,12 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     warnings = progress.count(False)
     exempted = progress.count('')
     total = len(progress)-exempted
+    
+    c = 0
+    for i in range(len(progress)):
+        if progress[i] is False:
+            c += 1
+            warn_dates += f'\n{c}: {gb_dates[i]}'
 
     if len(gb_dates) > 0:
         first_date = gb_dates[0]
@@ -126,7 +133,7 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
         emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':white_circle: You are exempted from doing GB this week.', inline=False)
     
     if warnings > 0:
-        emb.add_field(name=':warning: Warnings', value=f'You have {warnings} warning(s) for previously missing a guild battle.', inline=False)
+        emb.add_field(name=':warning: Warnings', value=f'You have {warnings} warning(s) for previously missing a guild battle.{warn_dates}', inline=False)
 
     if member.joined_at != None:
         jointime = member.joined_at.astimezone(tz=datetime.timezone(datetime.timedelta(hours=8)))

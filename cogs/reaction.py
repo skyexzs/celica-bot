@@ -95,7 +95,13 @@ class Reaction(commands.Cog):
             type = r['type']
             response = r['response']
 
-            response = random.choice(response)
+            response : str = random.choice(response)
+
+            args = {
+                '{user}': f'<@{msg.author.id}>'}
+
+            for a in args:
+                response = response.replace(a, args[a])
 
             if type == 'message':
                 await msg.channel.send(response)
@@ -119,7 +125,7 @@ class Reaction(commands.Cog):
         message='What message to respond to?',
         type='What type of response should it be (message, reply, reaction, sticker)',
         wildcard='Should the command be searched anywhere in the message (True) or only if exact match (False).',
-        response="What's the response? Use '|' to make randomized replies.")
+        response="What's the response? Use '[|]' to make randomized replies.")
     @app_commands.choices(type=[
         Choice(name='message', value=1),
         Choice(name='reply', value=2),
@@ -130,7 +136,7 @@ class Reaction(commands.Cog):
     async def reaction_add(self, interaction: discord.Interaction, message: str, type: Choice[int], wildcard: bool, response: str) -> None:
         """Add a new reaction response"""
         sticker = None
-        response = response.split('|')
+        response = response.split('[|]')
 
         if type.name == 'sticker':
             try:
@@ -221,5 +227,10 @@ class Reaction(commands.Cog):
         elif isinstance(error, app_commands.CheckFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
+
+async def setup(bot: commands.Bot) -> None:
+    global Reaction_Instance
+    Reaction_Instance = Reaction(bot)
+    await bot.add_cog(Reaction_Instance)
 
 Reaction_Instance : Reaction
