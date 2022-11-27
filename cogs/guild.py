@@ -823,7 +823,7 @@ class PGR_Guild(commands.Cog):
         await interaction.response.defer()
 
         c = xl_col_to_name(this_week.col-1)
-        name, progress = ws.batch_get(['B2:B81', f'{c}2:{c}81'], value_render_option=ValueRenderOption.unformatted)
+        name, progress = ws.batch_get(['C2:C81', f'{c}2:{c}81'], value_render_option=ValueRenderOption.unformatted)
         progress = progress[:len(name)]
         total = len(name)
         done = progress.count([True])
@@ -873,7 +873,7 @@ class PGR_Guild(commands.Cog):
         mem = []
         for i in range(len(name)):
             if progress[i] == check:
-                mem.append(f'<@{name[i][0]}>')
+                mem.append(f'@{name[i][0]}')
         
         emb.description += '\n\n' + '\n'.join(mem)
         await interaction.edit_original_response(content='Done!', embed=None, view=None)
