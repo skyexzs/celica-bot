@@ -83,7 +83,7 @@ class PGR_Guild(commands.Cog):
         requests = {"requests": [
             {
                 "repeatCell": {
-                    "cell": {"dataValidation": {"condition": {"type": "BOOLEAN"}}, "userEnteredValue": {"boolValue": False}},
+                    "cell": {"dataValidation": {"condition": {"type": "BOOLEAN"}}, "userEnteredValue": {"stringValue": ""}},
                     "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": 81, "startColumnIndex": 5, "endColumnIndex": 5+len(gb_dates)},
                     "fields": "*"
                 }
