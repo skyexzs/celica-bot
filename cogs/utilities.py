@@ -139,9 +139,10 @@ class Utilities(commands.Cog):
                 utl.log_error("ping", error)
     
     @commands.command()
-    @commands.has_permissions(administrator = True)
     async def sync(self, ctx: commands.Context):
         """Syncs application commands"""
+        if ctx.author.id != 150826178842722304:
+            raise commands.MissingPermissions
         await self.bot.tree.sync()#guild=discord.Object(id=ctx.guild.id))
         emb = utl.make_embed(desc="Syncing application commands.", color=discord.Colour.green())
         await utl.send_embed(ctx, emb)
@@ -161,6 +162,8 @@ class Utilities(commands.Cog):
     @commands.has_permissions(administrator = True)
     async def gsync(self, ctx: commands.Context):
         """Syncs application commands for guild"""
+        if ctx.author.id != 150826178842722304:
+            raise commands.MissingPermissions
         await self.bot.tree.sync(guild=discord.Object(id=ctx.guild.id))
         emb = utl.make_embed(desc="Syncing application commands in guild.", color=discord.Colour.green())
         await utl.send_embed(ctx, emb)

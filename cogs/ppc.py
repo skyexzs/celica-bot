@@ -141,7 +141,7 @@ class PPC(commands.Cog):
 
     @app_commands.command(name="exppc")
     async def exppc(self, interaction: discord.Interaction) -> None:
-        """Get EX-PPC Scores required for Achievement Roles"""
+        """Get maximum EX-PPC Scores from the spreadsheets."""
         dropdown = EX_PPC_BOSSES_VIEW(self.bosses, self.boss_icons, min_val=3, max_val=3)
 
         emb = discord.Embed(
@@ -215,21 +215,22 @@ class PPC(commands.Cog):
         except:
             raw_whale_total = 0
 
-        text = ''
-        if raw_whale_total != 0:
-            # Whale max scores rounded down to nearest 10k (for S+)
-            overlord = math.floor(raw_whale_total / 10000) * 10000
-            text += f'<:EXPPC1:1031556662017921064> <@&983931530005057586>: {overlord}\n'
-        if raw_ss_total != 0:
-            # SS max scores rounded up to nearest 10k (for SSS)
-            legend = math.ceil(raw_ss_total / 10000) * 10000
-            # SS max scores rounded down to nearest 10k and -10k (for SS)
-            conqueror = math.floor(raw_ss_total / 10000) * 10000 - 10000
-            text += f'<:EXPPC2:1031556773880008734> <@&1031387046016720908>: {legend}\n'
-            text += f'<:EXPPC3:1031556870994939934> <@&977900757972029461>: {conqueror}'
+        if interaction.guild.id == 887647011904557068:
+            text = ''
+            if raw_whale_total != 0:
+                # Whale max scores rounded down to nearest 10k (for S+)
+                overlord = math.floor(raw_whale_total / 10000) * 10000
+                text += f'<:EXPPC1:1031556662017921064> <@&983931530005057586>: {overlord}\n'
+            if raw_ss_total != 0:
+                # SS max scores rounded up to nearest 10k (for SSS)
+                legend = math.ceil(raw_ss_total / 10000) * 10000
+                # SS max scores rounded down to nearest 10k and -10k (for SS)
+                conqueror = math.floor(raw_ss_total / 10000) * 10000 - 10000
+                text += f'<:EXPPC2:1031556773880008734> <@&1031387046016720908>: {legend}\n'
+                text += f'<:EXPPC3:1031556870994939934> <@&977900757972029461>: {conqueror}'
+            emb.add_field(name='Required scores for roles:', value=text, inline=False)
 
-        emb.add_field(name='Required scores for roles:', value=text, inline=False)
-        emb.add_field(name='Max achievable scores:', value=f'Whale spreadsheet: {raw_whale_total}\nSS spreadsheet: {raw_ss_total}')
+        emb.add_field(name='Max achievable scores:', value=f'Whale spreadsheet: **{raw_whale_total}**\nSS spreadsheet: **{raw_ss_total}**')
 
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
         await interaction.edit_original_response(embed=success, view=None)
@@ -389,12 +390,21 @@ class PPC(commands.Cog):
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
         await interaction.edit_original_response(embed=success, view=None)
         await interaction.followup.send(embed=ss_emb, view=pagination)
+    
+    @app_commands.command(name='exppc_link')
+    async def exppc_link(self, interaction: discord.Interaction) -> None:
+        """Get the link to the EX-PPC spreadsheets"""
+        ss_url = os.getenv('SS_PPC_SPREADSHEET')
+        whale_url = os.getenv('WHALE_PPC_SPREADSHEET')
+        emb = discord.Embed(title='EX-PPC Spreadsheets')
+        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[Whale Spreadsheet]({whale_url})**')
+        await interaction.response.send_message(embed=emb, ephemeral=True)
 
     @app_commands.command(name="exppc_update")
     @app_commands.default_permissions(administrator=True)
     @app_commands.check(is_owner)
     async def exppc_update(self, interaction: discord.Interaction) -> None:
-        """Updates the EX-PPC scores from the spreadsheet"""
+        """Updates the EX-PPC scores from the spreadsheet. (Skye only)"""
         emb = utl.make_embed(desc='Updating...', color=discord.Colour.yellow())
         await interaction.response.send_message(embed=emb, ephemeral=True)
         self.update_bosses()

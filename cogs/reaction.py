@@ -231,6 +231,6 @@ class Reaction(commands.Cog):
 async def setup(bot: commands.Bot) -> None:
     global Reaction_Instance
     Reaction_Instance = Reaction(bot)
-    await bot.add_cog(Reaction_Instance)
+    await bot.add_cog(Reaction_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
 
 Reaction_Instance : Reaction

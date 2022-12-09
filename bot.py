@@ -121,8 +121,8 @@ async def add_cogs(gc):
 
     await bot.add_cog(Help(bot))
     await bot.add_cog(cogs.utilities.Utilities_Instance)
-    await bot.add_cog(cogs.warzone.Warzone_Instance)
-    await bot.add_cog(cogs.tht.THT_Instance)
+    await bot.add_cog(cogs.warzone.Warzone_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
+    await bot.add_cog(cogs.tht.THT_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
     await bot.add_cog(cogs.guild.Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
     await bot.add_cog(cogs.ppc.PPC_Instance)
 
