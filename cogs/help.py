@@ -26,15 +26,12 @@ class Help(commands.Cog):
         """Get help."""
         # starting to build embed
         emb = discord.Embed(title='Help Commands :grey_question:', color=discord.Color.light_gray())
-        
-        icon = ''
-        if ctx.guild.icon != None:
-            icon = ctx.guild.icon.url
 
-        emb.set_author(name=ctx.guild.name, icon_url=icon)
-        emb.add_field(name=':mag_right:  **__Find__**', value="**/find <member>** : Find a member's UID\n**/find <uid>** : Find a member from a given UID", inline=False)
-        emb.add_field(name='<:exaltair_Logo:937199287807377458> **__Guild__**', value="**/gb check** : Check your guild battle progress and warnings\n**/gb progress** : Check the weekly guild battle progress\n", inline=False)
-        emb.add_field(name='<:EXPPC1:1031556662017921064> **__EX-PPC__**', value="**/exppc** : Check required score for achievement roles (EX-PPC)")
-        emb.set_footer(text=self.bot.user, icon_url=self.bot.user.display_avatar.url)
+        emb.set_author(name=self.bot.user, icon_url=self.bot.user.display_avatar.url)
+        if ctx.guild.id == 887647011904557068:
+            emb.add_field(name=':mag_right:  **__Find__**', value="**/find <member>** : Find a member's UID\n**/find <uid>** : Find a member from a given UID", inline=False)
+            emb.add_field(name='<:exaltair_Logo:937199287807377458> **__Guild__**', value="**/gb check** : Check your guild battle progress and warnings\n**/gb progress** : Check the weekly guild battle progress\n", inline=False)
+        emb.add_field(name='<:EXPPC1:1031556662017921064> **__EX-PPC__**', value="**/exppc** : Check maximum EX-PPC scores for this week\n**/boss** : Check individual bosses scores\n**/exppc_link** : Get the links for the spreadsheets")
+        emb.set_footer(text='Made by Skye#2926', icon_url='https://cdn.discordapp.com/avatars/150826178842722304/a_ddc30804feb3e6c1ee942f9fc937d4fc.gif?size=1024')
         emb.timestamp = datetime.datetime.now()
         await ctx.send(embed=emb)
