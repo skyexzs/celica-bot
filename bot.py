@@ -17,10 +17,6 @@ import mongo
 from mongo import MongoDB
 
 from cogs.help import Help
-from cogs.ppc import PPC
-import cogs.ppc
-from cogs.guild import PGR_Guild
-import cogs.guild
 from cogs.tht import THT
 import cogs.tht
 from cogs.utilities import Utilities
@@ -43,6 +39,8 @@ intents.members = True
 bot = commands.Bot(command_prefix=get_prefix, intents=intents)
 bot.remove_command('help')
 
+gc = gspread.service_account(filename=os.path.join(MAIN_PATH, 'service_account.json'))
+
 @bot.event
 async def on_ready():
     Config.check_folder()
@@ -50,8 +48,7 @@ async def on_ready():
     mongo.Mongo_Instance = MongoDB(os.getenv('MONGODB_CONN'))
     mongo.Mongo_Instance.setup(bot.guilds)
     scheduler.run_scheduler(os.getenv('MONGODB_CONN'), bot.guilds)
-    gc = gspread.service_account(filename=os.path.join(MAIN_PATH, 'service_account.json'))
-    await add_cogs(gc)
+    await add_cogs()
     print(f'{bot.user} has connected to Discord on ' + str(len(bot.guilds)) + ' servers.')
 
 @bot.event
@@ -124,9 +121,9 @@ async def reload_error(ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
             await ctx.send("You have no permission to run this command.")
         elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Available arguments: reaction")
+            await ctx.send("Available arguments: ppc, guild, reaction")
 
-async def add_cogs(gc):
+async def add_cogs():
     cogs.utilities.Utilities_Instance = Utilities(bot)
     cogs.warzone.Warzone_Instance = Warzone(bot)
     cogs.tht.THT_Instance = THT(bot)

@@ -7,6 +7,7 @@ from typing import List
 from gspread.utils import ValueRenderOption
 from gspread.exceptions import WorksheetNotFound
 from itertools import groupby
+import mongo
 
 import discord
 from discord.ext import commands
@@ -14,7 +15,7 @@ from discord import app_commands
 
 from utils import utils as utl
 from utils.utils import ViewTimedOutError
-import mongo
+from bot import gc
 
 # initial data to add to Mongo DB
 query = [
@@ -105,7 +106,7 @@ class Boss_Button_View(discord.ui.View):
         await interaction.response.edit_message(embed=emb, view=self)
 
 class PPC(commands.Cog):
-    def __init__(self, bot: commands.Bot, gc):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.gc = gc
         self.bosses = []

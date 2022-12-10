@@ -15,6 +15,7 @@ from utils.utils import ViewTimedOutError
 from utils.models import Button_UI
 from utils.models import Button_View
 from config import Config
+from bot import gc
 
 """
 Special Cog for the Exaltair Guild
@@ -63,7 +64,7 @@ class Confirm_Or_Cancel_View(Button_View):
         await super().callback(interaction, label)
 
 class PGR_Guild(commands.Cog):
-    def __init__(self, bot: commands.Bot, gc):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.gc = gc
 
@@ -994,9 +995,9 @@ class PGR_Guild(commands.Cog):
             except discord.errors.InteractionResponded:
                 await interaction.edit_original_response(embed=emb)
 
-    async def setup(bot: commands.Bot) -> None:
-        global Guild_Instance
-        Guild_Instance = PGR_Guild(bot)
-        await bot.add_cog(Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
+async def setup(bot: commands.Bot) -> None:
+    global Guild_Instance
+    Guild_Instance = PGR_Guild(bot)
+    await bot.add_cog(Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
 
 Guild_Instance : PGR_Guild
