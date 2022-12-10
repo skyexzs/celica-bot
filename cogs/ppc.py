@@ -334,6 +334,7 @@ class PPC(commands.Cog):
         split_condition = lambda x: x == []
         wws = None
         
+        # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale
         alias = aliases[0]
         if len(aliases) > 1:
             alias = aliases[1]
@@ -374,7 +375,10 @@ class PPC(commands.Cog):
                 for j in sc[2:]:
                     try:
                         char = j.split('\n')
-                        text += f'**{char[0]}**: {char[1]}\n'
+                        text += f'**{char[0].strip()}**'
+                        if len(char) > 1:
+                            text += f': {char[1]}'
+                        text += '\n'
                     except IndexError:
                         continue
                 if len(links) != 0:
@@ -415,5 +419,10 @@ class PPC(commands.Cog):
         if isinstance(error, app_commands.CheckFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
-    
+
+async def setup(bot: commands.Bot) -> None:
+    global PPC_Instance
+    PPC_Instance = PPC(bot)
+    await bot.add_cog(PPC_Instance)
+
 PPC_Instance : PPC

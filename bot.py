@@ -55,6 +55,14 @@ async def on_ready():
     print(f'{bot.user} has connected to Discord on ' + str(len(bot.guilds)) + ' servers.')
 
 @bot.event
+async def on_guild_join(guild: discord.Guild):
+    mongo.Mongo_Instance.setup([guild])
+
+@bot.event
+async def on_resumed():
+    mongo.Mongo_Instance.setup(bot.guilds)
+
+@bot.event
 async def on_error(event, *args, **kwargs):
     with open('err.log', 'a') as f:
         if event == 'on_message':
@@ -98,11 +106,17 @@ def is_owner():
 @bot.command()
 @is_owner()
 async def reload(ctx: commands.Context, cog: str):
-    if cog == 'reaction':
+    if cog == 'ppc':
+        await bot.reload_extension('cogs.ppc')
+        await ctx.send(f"Cog '{cog}' reloaded.")
+    elif cog == 'guild':
+        await bot.reload_extension('cogs.guild')
+        await ctx.send(f"Cog '{cog}' reloaded.")
+    elif cog == 'reaction':
         await bot.reload_extension('cogs.reaction')
         await ctx.send(f"Cog '{cog}' reloaded.")
     else:
-        await ctx.send("Available arguments: reaction")
+        await ctx.send("Available arguments: ppc, guild, reaction")
 
 @reload.error
 async def reload_error(ctx: commands.Context, error: commands.CommandError):
@@ -116,16 +130,14 @@ async def add_cogs(gc):
     cogs.utilities.Utilities_Instance = Utilities(bot)
     cogs.warzone.Warzone_Instance = Warzone(bot)
     cogs.tht.THT_Instance = THT(bot)
-    cogs.guild.Guild_Instance = PGR_Guild(bot, gc)
-    cogs.ppc.PPC_Instance = PPC(bot, gc)
 
     await bot.add_cog(Help(bot))
     await bot.add_cog(cogs.utilities.Utilities_Instance)
     await bot.add_cog(cogs.warzone.Warzone_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
     await bot.add_cog(cogs.tht.THT_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
-    await bot.add_cog(cogs.guild.Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
-    await bot.add_cog(cogs.ppc.PPC_Instance)
 
+    await bot.load_extension('cogs.ppc')
+    await bot.load_extension('cogs.guild')
     await bot.load_extension('cogs.reaction')
     
 # try:

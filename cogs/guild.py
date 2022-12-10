@@ -994,4 +994,9 @@ class PGR_Guild(commands.Cog):
             except discord.errors.InteractionResponded:
                 await interaction.edit_original_response(embed=emb)
 
+    async def setup(bot: commands.Bot) -> None:
+        global Guild_Instance
+        Guild_Instance = PGR_Guild(bot)
+        await bot.add_cog(Guild_Instance, guilds=[discord.Object(id=887647011904557068), discord.Object(id=487100763684864010)])
+
 Guild_Instance : PGR_Guild
