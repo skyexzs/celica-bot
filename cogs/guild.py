@@ -914,9 +914,9 @@ class PGR_Guild(commands.Cog):
             gb_progress = m[4:]
             warnings = self.get_progress_up_to_date(gb_dates, gb_progress, start_of_week).count(False)
             if warnings > 2:
-                text += f'**({m[2]}) <@{m[0]}>: {warnings}**\n'
+                text += f'**({m[2]}) @{m[1]}: {warnings}**\n'
             else:
-                text += f'({m[2]}) <@{m[0]}>: {warnings}\n'
+                text += f'({m[2]}) @{m[1]}: {warnings}\n'
 
         icon = ''
         if interaction.guild.icon != None:
