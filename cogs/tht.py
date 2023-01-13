@@ -13,16 +13,16 @@ import mongo
 
 def check_tht_jobs_exist(guild_id) -> bool:
     thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(guild_id))
-    tht15job = scheduler.schdr.get_job(job_id='tht15scheduler', jobstore=str(guild_id))
-    if thtjob != None or tht15job != None:
+    speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(guild_id))
+    if thtjob != None or speedthtjob != None:
         return True
     else:
         return False
 
 async def get_tht_jobs(guild_id):
     thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(guild_id))
-    tht15job = scheduler.schdr.get_job(job_id='tht15scheduler', jobstore=str(guild_id))
-    return thtjob, tht15job
+    speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(guild_id))
+    return thtjob, speedthtjob
     
 async def check_player_tht_message(msg: discord.Message, job: Job):
     channel_id = job.args[1]
@@ -51,7 +51,7 @@ async def stop_tht_event(guild_id: int, channel_id: int, role_id: int, type: str
     channel = guild.get_channel(channel_id)
     role = guild.get_role(role_id)
 
-    if type != '15min':
+    if type != '15min' and type != '5min':
         await mongo.Mongo_Instance.delete_data(guild, {}, 'thtdata')
         muted_role = guild.get_role(Config.read_config(guild)['tht_role_muted'])
         for m in muted_role.members:
@@ -113,7 +113,8 @@ class THT_Mode_Dropdown_UI(discord.ui.Select):
             discord.SelectOption(label='Surprise Special', value='surprise', emoji='<:ScreamAlpha:897855688880050256>'),
             discord.SelectOption(label='SOLO Specific', value='solo', emoji='<:BiancaScream:884098835050295356>'),
             discord.SelectOption(label='Class Specific', value='class', emoji='<:AylaScream:722561152382402611>'),
-            discord.SelectOption(label='15 MIN Random', value='15min', emoji='<:ScreamVera:899144731395760128>')
+            discord.SelectOption(label='15 MIN Random', value='15min', emoji='<:ScreamVera:899144731395760128>'),
+            discord.SelectOption(label='5 MIN Random', value='5min', emoji='<:nanamiscream:728515428724244530>')
         ]
 
         super().__init__(placeholder='Choose the type of THT...', min_values=1, max_values=1, options=options)
@@ -209,13 +210,13 @@ class THT(commands.Cog):
         if msg.channel.permissions_for(msg.author).administrator == True:
             return
 
-        thtjob, tht15job = await get_tht_jobs(msg.guild.id)
+        thtjob, speedthtjob = await get_tht_jobs(msg.guild.id)
 
         if thtjob != None:
             await check_player_tht_message(msg, thtjob)
 
-        if tht15job != None:
-            await check_player_tht_message(msg, tht15job)
+        if speedthtjob != None:
+            await check_player_tht_message(msg, speedthtjob)
 
     @app_commands.command(name="tht")
     @app_commands.default_permissions(administrator=True)
@@ -256,13 +257,13 @@ class THT(commands.Cog):
                     # if the user interacted with the dropdown
                     else:
                         thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
-                        tht15job = scheduler.schdr.get_job(job_id='tht15scheduler', jobstore=str(interaction.guild.id))
+                        speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
                         if dropdown.value in ('normal', 'specific', 'solo', 'class', 'special', 'surprise') and thtjob != None:
-                            emb = utl.make_embed(desc="There is a normal THT event running already.", color=discord.Colour.red())
+                            emb = utl.make_embed(desc="There is a Normal THT event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
-                        elif dropdown.value == '15min' and tht15job != None:
-                            emb = utl.make_embed(desc="There is a 15 Min THT event running already.", color=discord.Colour.red())
+                        elif (dropdown.value == '15min' or dropdown.value == '5min') and speedthtjob != None:
+                            emb = utl.make_embed(desc="There is a Speed THT event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
                             
@@ -317,7 +318,14 @@ class THT(commands.Cog):
                             end_date = start_date + datetime.timedelta(minutes=15)
                             #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
                             url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476457246761/THT_7.png'
-                            job_id = 'tht15scheduler'
+                            job_id = 'speedthtscheduler'
+                            pass
+                        elif dropdown.value == '5min':
+                            start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
+                            end_date = start_date + datetime.timedelta(minutes=5)
+                            #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
+                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476457246761/THT_7.png'
+                            job_id = 'speedthtscheduler'
                             pass
                             
                         emb.add_field(name='Start', value=f"<t:{int(start_date.timestamp())}>", inline=True)           
@@ -340,13 +348,13 @@ class THT(commands.Cog):
                 else:
                     # stop THT event if any
                     thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
-                    tht15job = scheduler.schdr.get_job(job_id='tht15scheduler', jobstore=str(interaction.guild.id))
+                    speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
 
                     stopview = THT_Stop_View()
                     if thtjob != None:
                         stopview.add_item(Button_UI('Normal', discord.ButtonStyle.blurple))
-                    if tht15job != None:
-                        stopview.add_item(Button_UI('15 Min', discord.ButtonStyle.blurple))
+                    if speedthtjob != None:
+                        stopview.add_item(Button_UI('Speed', discord.ButtonStyle.blurple))
 
                     emb = utl.make_embed(desc="Which THT event do you want to stop?", color=discord.Colour.yellow())
                     await interaction.edit_original_response(embed=emb, view=stopview)
@@ -371,9 +379,9 @@ class THT(commands.Cog):
                                 scheduler.schdr.remove_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
                                 emb = utl.make_embed(desc=f"Stopped scheduler for Normal THT.", color=discord.Colour.green())
                             else:
-                                # 15 Min THT
-                                scheduler.schdr.remove_job(job_id='tht15scheduler', jobstore=str(interaction.guild.id))
-                                emb = utl.make_embed(desc=f"Stopped scheduler for 15 Min THT.", color=discord.Colour.green())
+                                # 15 Min THT or 5 Min THT (Speed THT)
+                                scheduler.schdr.remove_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
+                                emb = utl.make_embed(desc=f"Stopped scheduler for Speed THT.", color=discord.Colour.green())
                             await interaction.edit_original_response(embed=emb, view=None)
 
         except utl.ViewTimedOutError:

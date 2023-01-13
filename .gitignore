@@ -1,5 +1,6 @@
 
 .env
+module_backups/
 configs/
 groups/
 reactions/
@@ -7,3 +8,4 @@ err.log
 *.pyc
 service_account.json
 test.py
+todolist.txt
