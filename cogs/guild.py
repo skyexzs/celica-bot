@@ -73,8 +73,8 @@ class PGR_Guild(commands.Cog):
 
         try:
             self.sh = self.gc.open_by_url(os.getenv('EXALTAIR_SPREADSHEET'))
-            self.main_ws = self.sh.worksheet('Main')
-            self.sub_ws = self.sh.worksheet('Sub')
+            self.main_ws = self.sh.worksheet('MainTest')
+            self.sub_ws = self.sh.worksheet('SubTest')
             self.get_data('Main')
             self.get_data('Sub')
         except:
@@ -107,7 +107,7 @@ class PGR_Guild(commands.Cog):
             self.sub_data  = [x for x in self.sub_data if x[0] != '']
             self.sub_data.sort(key=name_sort)
 
-    async def add_member_to_guild(self, guild: Literal['Main', 'Sub'], member: discord.Member, uid: int):
+    async def add_member_to_guild(self, guild: Literal['Main', 'Sub'], member: discord.Member, uid: int, data: list = None):
         to_add = None
         ws = None
         self.get_data(guild) # refresh the data before adding
@@ -117,14 +117,18 @@ class PGR_Guild(commands.Cog):
         else:
             to_add = self.sub_data
             ws = self.sub_ws
-        gb_dates = ws.row_values(1)[5:] # get amount of gb dates in the sheet
-        new_mem = [str(member.id), str(member), str(uid), '']
-        for i in gb_dates:
-            new_mem.append('')
-        to_add.append(new_mem)
-        to_add.sort(key=name_sort)
+        if data is None:
+            gb_dates = ws.row_values(1)[5:] # get amount of gb dates in the sheet
+            new_mem = [str(member.id), str(member), str(uid), '']
+            for i in gb_dates:
+                new_mem.append('')
+            to_add.append(new_mem)
+            to_add.sort(key=name_sort)
+        else:
+            to_add.append(data.copy())
+            to_add.sort(key=name_sort)
         await self.update_data(guild)
-    
+
     async def remove_member_from_guild(self, guild: Literal['Main', 'Sub'], uid: int):
         self.get_data(guild) # refresh the data before removing
         if guild == 'Main':
@@ -359,6 +363,100 @@ class PGR_Guild(commands.Cog):
             except KeyError:
                 pass
         emb = utl.make_embed(desc=f"Removed <@{member.id}> (UID: {uid}) from {guild.name} guild.", color=discord.Colour.green())
+        await interaction.followup.send(embed=emb)
+        return
+    
+    @members.command(name='transfer')
+    @is_gm()
+    @app_commands.describe(
+        guild='Which guild to transfer member from?',
+        member='The member to transfer',
+        remove_roles="Replace (or add) Main/Sub guild role from the member? (default = False)")
+    @app_commands.choices(guild=[
+        Choice(name='Main', value=1),
+        Choice(name='Sub', value=2)
+    ])
+    async def members_transfer(self, interaction: discord.Interaction, guild: Choice[int], member: discord.Member, replace_roles: Optional[bool] = False) -> None:
+        """Remove a member from the guild"""
+        data = None
+        data_to = None
+        guild_to = ''
+        if guild.name == 'Main':
+            data = self.main_data
+            data_to = self.sub_data
+            guild_to = 'Sub'
+        else:
+            data = self.sub_data
+            data_to = self.main_data
+            guild_to = 'Main'
+
+        # If member is not in the records yet
+        if not any(str(member.id) in x for x in data):
+            emb = utl.make_embed(desc=f"<@{member.id}> is not in {guild.name} guild.", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+        
+        if len(data) > 79:
+            emb = utl.make_embed(desc=f":x: The {guild_to} guild is currently full!", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+
+        records = [m for m in data if m[0] == (str(member.id))]
+        # If member has multiple ids
+        if len(records) > 1:
+            idview = Button_View(20)
+            for r in records:
+                idview.add_item(Button_UI(str(r[2]), discord.ButtonStyle.blurple))
+            emb = utl.make_embed(desc='Which UID to transfer from the member?', color=discord.Colour.yellow())
+            await interaction.response.send_message(embed=emb, view=idview, ephemeral=True)
+            await idview.wait()
+
+            if idview.value is None:
+                raise ViewTimedOutError
+            else:
+                member_data = [r for r in records if r[2] == idview.value]
+                await self.add_member_to_guild(guild_to, member, int(idview.value), member_data)
+                await self.remove_member_from_guild(guild.name, int(idview.value))
+
+                if replace_roles:
+                    try:
+                        exaltairs = Config.read_config(interaction.guild)["exaltairs_role"]
+                        main = Config.read_config(interaction.guild)["main_role"]
+                        sub = Config.read_config(interaction.guild)["sub_role"]
+                        
+                        if guild.name == 'Main':
+                            await member.add_roles(discord.Object(exaltairs), discord.Object(sub))
+                        else:
+                            await member.add_roles(discord.Object(exaltairs), discord.Object(main))
+                    except KeyError:
+                        pass
+                emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {idview.value}) from {guild.name} guild to **{guild_to}** guild.", color=discord.Colour.green())
+                
+                success = utl.make_embed(desc="Success!", color=discord.Colour.green())
+                await interaction.edit_original_response(embed=success, view=None)
+                await interaction.followup.send(embed=emb)
+                return
+        
+        # If member has only 1 id
+        member_data = records[0]
+        await interaction.response.defer()
+        await self.add_member_to_guild(guild_to, member, int(member_data[2]), member_data)
+        await self.remove_member_from_guild(guild.name, int(member_data[2]))
+        if replace_roles:
+            try:
+                exaltairs = Config.read_config(interaction.guild)["exaltairs_role"]
+                main = Config.read_config(interaction.guild)["main_role"]
+                sub = Config.read_config(interaction.guild)["sub_role"]
+                
+                if guild.name == 'Main':
+                    await member.remove_roles(discord.Object(main))
+                    await member.add_roles(discord.Object(sub))
+                else:
+                    await member.remove_roles(discord.Object(sub))
+                    await member.add_roles(discord.Object(main))
+            except KeyError:
+                pass
+        emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {member_data[2]}) from {guild.name} guild to **{guild_to}** guild.", color=discord.Colour.green())
         await interaction.followup.send(embed=emb)
         return
     
@@ -994,6 +1092,7 @@ class PGR_Guild(commands.Cog):
                 await interaction.response.send_message(embed=emb, ephemeral=True)
             except discord.errors.InteractionResponded:
                 await interaction.edit_original_response(embed=emb)
+            return
 
 async def setup(bot: commands.Bot) -> None:
     global Guild_Instance

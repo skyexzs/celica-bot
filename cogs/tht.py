@@ -403,7 +403,7 @@ class THT(commands.Cog):
             modal.requirements.default = message_data['requirements']
             modal.start_date.default = message_data['start_date']
             modal.custom_thumbnail.default = message_data['custom_thumbnail']
-        
+
         await interaction.response.send_modal(modal)
         await modal.wait()
 
@@ -416,7 +416,7 @@ class THT(commands.Cog):
                 'start_date': modal.start_date.value,
                 'custom_thumbnail': modal.custom_thumbnail.value }
             }
-                
+
             await mongo.Mongo_Instance.insert_data(interaction.guild, query, new_message)
 
             emb = discord.Embed(title=modal.name.value,description=modal.description.value)

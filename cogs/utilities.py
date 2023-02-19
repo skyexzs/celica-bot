@@ -168,8 +168,8 @@ class Utilities(commands.Cog):
         emb = utl.make_embed(desc="Syncing application commands in guild.", color=discord.Colour.green())
         await utl.send_embed(ctx, emb)
     
-    @sync.error
-    async def sync_error(self, ctx: commands.Context, error: commands.CommandError):
+    @gsync.error
+    async def gsync_error(self, ctx: commands.Context, error: commands.CommandError):
         """Handle errors for the gsync command."""
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
             pass
