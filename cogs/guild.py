@@ -396,7 +396,7 @@ class PGR_Guild(commands.Cog):
             await interaction.response.send_message(embed=emb, ephemeral=True)
             return
         
-        if len(data) > 79:
+        if len(data_to) > 79:
             emb = utl.make_embed(desc=f":x: The {guild_to} guild is currently full!", color=discord.Colour.red())
             await interaction.response.send_message(embed=emb, ephemeral=True)
             return
