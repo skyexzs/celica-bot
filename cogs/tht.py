@@ -61,6 +61,14 @@ async def stop_tht_event(guild_id: int, channel_id: int, role_id: int, type: str
     await channel.set_permissions(role, send_messages=False, read_messages=True)
     await channel.send(embed=emb)
 
+async def remind_norman(guild_id: int, member_id: int):
+    guild = THT_Instance.bot.get_guild(guild_id)
+    member = guild.get_member(member_id)
+    time = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8))).strftime("%d/%m %H:%M")
+    if member is not None:
+        emb = utl.make_embed(desc=f"⏰ **__Time to do your Norman!__** ({time} UTC+8)\nType **/norman stop** in {guild.name} to stop this reminder.", color=discord.Colour.yellow())
+        await member.send(embed=emb)
+
 class Button_UI(discord.ui.Button):
     def __init__(self, label: str, style: discord.ButtonStyle, disabled: bool = False):
         super().__init__(label=label, style=style, disabled=disabled)
@@ -479,6 +487,44 @@ class THT(commands.Cog):
             await utl.send_embed(ctx, error_emb)
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("thtrole", error)
+
+    norman = app_commands.Group(name='norman', description='Commands to set norman reminder')
+    
+    @norman.command(name="remindme")
+    async def norman_remindme(self, interaction: discord.Interaction) -> None:
+        """Set reminder for norman everyday for 2 days starting tomorrow."""
+        member_id : int = interaction.user.id
+        await interaction.response.defer(ephemeral=True)
+
+        now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
+        next_time = now + datetime.timedelta(days=1)
+        end_time = now + datetime.timedelta(days=1, hours=1)
+        job = scheduler.norman_schdr.get_job(job_id=str(member_id), jobstore=str(interaction.guild.id))
+
+        if job is None:
+            scheduler.norman_schdr.add_job(remind_norman, 'interval', days=1, start_date=next_time, end_date=end_time, args=[interaction.guild.id, member_id], jobstore=str(interaction.guild.id), misfire_grace_time=7200, id=str(member_id), replace_existing=True, max_instances=1000)
+            emb = utl.make_embed(desc=f"Successfully set reminder for Norman every **{now.strftime('%H:%M')}** (GMT+8)!\nIt will run everyday for __2 days__ starting tomorrow.\nTo stop, type **/norman stop**", color=discord.Colour.green())
+            await interaction.followup.send(embed=emb, ephemeral=True)
+        else:
+            time = job.next_run_time.strftime("%H:%M")
+            emb = utl.make_embed(desc=f"You already have a reminder set every **{time}** (GMT+8).\nTo stop, type **/norman stop**", color=discord.Colour.yellow())
+            await interaction.followup.send(embed=emb, ephemeral=True)
+
+    @norman.command(name="stop")
+    async def norman_stop(self, interaction: discord.Interaction) -> None:
+        """Stop reminder for Norman"""
+        member_id : int = interaction.user.id
+        await interaction.response.defer(ephemeral=True)
+
+        job = scheduler.norman_schdr.get_job(job_id=str(member_id), jobstore=str(interaction.guild.id))
+
+        if job is None:
+            emb = utl.make_embed(desc=f"You have no running reminder for Norman!", color=discord.Colour.red())
+            await interaction.followup.send(embed=emb, ephemeral=True)
+        else:
+            scheduler.norman_schdr.remove_job(job_id=str(member_id), jobstore=str(interaction.guild.id))
+            emb = utl.make_embed(desc=f"Successfully stopped reminder for Norman!", color=discord.Colour.green())
+            await interaction.followup.send(embed=emb, ephemeral=True)
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):

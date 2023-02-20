@@ -73,8 +73,8 @@ class PGR_Guild(commands.Cog):
 
         try:
             self.sh = self.gc.open_by_url(os.getenv('EXALTAIR_SPREADSHEET'))
-            self.main_ws = self.sh.worksheet('MainTest')
-            self.sub_ws = self.sh.worksheet('SubTest')
+            self.main_ws = self.sh.worksheet('Main')
+            self.sub_ws = self.sh.worksheet('Sub')
             self.get_data('Main')
             self.get_data('Sub')
         except:
@@ -430,7 +430,7 @@ class PGR_Guild(commands.Cog):
                             await member.add_roles(discord.Object(exaltairs), discord.Object(main))
                     except KeyError:
                         pass
-                emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {idview.value}) from {guild.name} guild to **{guild_to}** guild.", color=discord.Colour.green())
+                emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {idview.value}) from **{guild.name}** guild to **{guild_to}** guild.", color=discord.Colour.green())
                 
                 success = utl.make_embed(desc="Success!", color=discord.Colour.green())
                 await interaction.edit_original_response(embed=success, view=None)
@@ -456,7 +456,7 @@ class PGR_Guild(commands.Cog):
                     await member.add_roles(discord.Object(main))
             except KeyError:
                 pass
-        emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {member_data[2]}) from {guild.name} guild to **{guild_to}** guild.", color=discord.Colour.green())
+        emb = utl.make_embed(desc=f"Transferred <@{member.id}> (UID: {member_data[2]}) from **{guild.name}** guild to **{guild_to}** guild.", color=discord.Colour.green())
         await interaction.followup.send(embed=emb)
         return
     
