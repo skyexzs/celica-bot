@@ -371,7 +371,7 @@ class PGR_Guild(commands.Cog):
     @app_commands.describe(
         guild='Which guild to transfer member from?',
         member='The member to transfer',
-        remove_roles="Replace (or add) Main/Sub guild role from the member? (default = False)")
+        replace_roles="Replace (or add) Main/Sub guild role from the member? (default = False)")
     @app_commands.choices(guild=[
         Choice(name='Main', value=1),
         Choice(name='Sub', value=2)
