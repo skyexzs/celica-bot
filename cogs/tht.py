@@ -498,7 +498,7 @@ class THT(commands.Cog):
 
         now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
         next_time = now + datetime.timedelta(days=1)
-        end_time = now + datetime.timedelta(days=1, hours=1)
+        end_time = now + datetime.timedelta(days=2, hours=1)
         job = scheduler.norman_schdr.get_job(job_id=str(member_id), jobstore=str(interaction.guild.id))
 
         if job is None:
