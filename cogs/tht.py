@@ -58,7 +58,7 @@ async def stop_tht_event(guild_id: int, channel_id: int, role_id: int, type: str
             await m.remove_roles(muted_role)
 
     emb = utl.make_embed(desc='The THT event is now over. Please wait for the next announcement.', color=discord.Colour.red())
-    await channel.set_permissions(role, send_messages=False, read_messages=True)
+    await channel.set_permissions(role, send_messages=False)
     await channel.send(embed=emb)
 
 async def remind_norman(guild_id: int, member_id: int):
@@ -352,7 +352,7 @@ class THT(commands.Cog):
                         
                         await interaction.edit_original_response(embed=success, view=None)
                         await interaction.channel.send(embed=emb)
-                        await interaction.channel.set_permissions(interaction.guild.get_role(role), send_messages=None, read_messages=True)
+                        await interaction.channel.set_permissions(interaction.guild.get_role(role), send_messages=None, read_messages=None)
                 else:
                     # stop THT event if any
                     thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
