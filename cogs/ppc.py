@@ -37,6 +37,7 @@ query = [
 ]
 
 SS_TOTAL_SCORE_CELL = 'C12'
+#SSS_TOTAL_SCORE_CELL = 'XX'
 WHALE_TOTAL_SCORE_CELL = 'J4'
 
 def is_owner(interaction: discord.Interaction) -> bool:
@@ -88,20 +89,28 @@ class Boss_Button_UI(discord.ui.Button['Boss_Button_View']):
         await self.view.callback(interaction, self.id, self.emb)
 
 class Boss_Button_View(discord.ui.View):
-    def __init__(self, ss_emb: discord.Embed, splus_emb: discord.Embed, timeout = 120):
+    def __init__(self, ss_emb: discord.Embed, sss_emb: discord.Embed, splus_emb: discord.Embed, timeout = 120):
         super().__init__()
         self.ss_btn = Boss_Button_UI('<:SS:1041604124942270514>', emb=ss_emb, id='ss', disabled=True)
+        self.sss_btn = Boss_Button_UI('<:SSS:1085394905242808373>', emb=sss_emb, id='sss')
         self.splus_btn = Boss_Button_UI('<:SSSPlus:1041604127773442058>', emb=splus_emb, id='splus')
         self.add_item(self.ss_btn)
+        self.add_item(self.sss_btn)
         self.add_item(self.splus_btn)
         self.timeout = timeout
     
     async def callback(self, interaction: discord.Interaction, btn_id: str, emb: discord.Embed):
         if btn_id == 'ss':
             self.ss_btn.disabled = True
+            self.sss_btn.disabled = False
+            self.splus_btn.disabled = False
+        elif btn_id == "sss":
+            self.ss_btn.disabled = False
+            self.sss_btn.disabled = True
             self.splus_btn.disabled = False
         else:
             self.ss_btn.disabled = False
+            self.sss_btn.disabled = False
             self.splus_btn.disabled = True
         await interaction.response.edit_message(embed=emb, view=self)
 
@@ -111,9 +120,12 @@ class PPC(commands.Cog):
         self.gc = gc
         self.bosses = []
         self.boss_icons = []
+        self.boss_embed_cache = {}
+        self.boss_time_created_cache = {}
 
         try:
             self.ss_sh = self.gc.open_by_url(os.getenv('SS_PPC_SPREADSHEET'))
+            self.sss_sh = self.gc.open_by_url(os.getenv('SSS_PPC_SPREADSHEET'))
             self.whale_sh = self.gc.open_by_url(os.getenv('WHALE_PPC_SPREADSHEET'))
             self.update_bosses()
         except:
@@ -267,131 +279,243 @@ class PPC(commands.Cog):
 
         # for testing
         # dropdown.values = ['Sharkspeare']
-
-        thb = ''
-        emoji = ''
-        aliases = []
-        for i in self.boss_icons:
-            if i['_id'] == dropdown.values[0]:
-                thb = i['thumbnail']
-                emoji = i['emoji']
-                aliases = i['aliases']
-
-        diff = ['Test','Elite','Knight','Chaos','Hell']
-
-        # Create SS Embed Template
-        ss_emb = discord.Embed(
-            title=f"{emoji} {dropdown.values[0]} Scores (SS Sheet) <:SS:1041604124942270514>",
-            color=discord.Colour.blue())
-        ss_emb.set_author(name=interaction.guild.name)
-        if interaction.guild.icon != None:
-            ss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-            ss_emb.set_thumbnail(url=thb)
-        ss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
-        ss_emb.timestamp = datetime.datetime.now()
-
-        # Get score data from the SS sheet
-        ssws = None
-        for a in aliases:
-            try:
-                ssws = self.ss_sh.worksheet(a)
-                break
-            except WorksheetNotFound:
-                continue
-
-        scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
-        c = 0
-        for s in scores:
-            # example data: [[20262, '', '=HYPERLINK("https://youtu.be/oWRo7r32nfM", "0:09")'], []]
-            # if it's not a row divider but a score entry
-            if len(s) != 0:
-                score = s[0]
-                x = re.search(r'\(\"(.*)\",\"(.*)\"\)', s[2].replace(' ', ''))
-                link = ''
-                time = ''
-                if x != None:
-                    link, time = x.groups()
-                else:
-                    time = s[2]
-
-                text = f'Score: **{score}**\nTime: **{time}**\n'
-                
-                if link != '':
-                    text += f'**[Example]({link})**'
-
-                ss_emb.add_field(name=diff[c], value=text, inline=True)
-                c += 1
         
-        # Create Whale Embed Template
-        emb = discord.Embed(
-            title=f"{emoji} {dropdown.values[0]} Scores (Whale Sheet) <:SSSPlus:1041604127773442058>",
-            color=discord.Colour.blue())
-        emb.set_author(name=interaction.guild.name)
-        if interaction.guild.icon != None:
-            emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-            emb.set_thumbnail(url=thb)
-        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
-        emb.timestamp = datetime.datetime.now()
+        # if there is cached result in the last 15 mins
+        ss_emb = None
+        sss_emb = None
+        emb = None
 
-        # Get score data from the Whale sheet
-        split_condition = lambda x: x == []
-        wws = None
-        
-        # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale
-        alias = aliases[0]
-        if len(aliases) > 1:
-            alias = aliases[1]
+        boss = dropdown.values[0]
+        skip = False
+        if self.boss_embed_cache.get(boss, None) is not None:
+            if (datetime.datetime.now() - self.boss_time_created_cache[boss]).total_seconds() < 900:
+                ss_emb = self.boss_embed_cache[boss][0]
+                sss_emb = self.boss_embed_cache[boss][1]
+                emb = self.boss_embed_cache[boss][2]
+                skip = True
 
-        wws = self.whale_sh.worksheet(alias)
+        if not skip:
+            thb = ''
+            emoji = ''
+            aliases = []
+            for i in self.boss_icons:
+                if i['_id'] == dropdown.values[0]:
+                    thb = i['thumbnail']
+                    emoji = i['emoji']
+                    aliases = i['aliases']
 
-        col = wws.col_values(3)[2:]
-        data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
-        #print(data)
-        grouper = groupby(data, key=split_condition)
-        scores = [list(group) for key, group in grouper if not key]
-        #print(scores)
+            diff = ['Test','Elite','Knight','Chaos','Hell']
 
-        # Get hyperlink data from Whale sheet
-        links = []
-        ranges = ''
-        row = 3
-        for d in data:
-            if len(d) != 0:
-                ranges += f'ranges={alias}!H{row}&'
-            row += 1
-        
-        if ranges != '':
-            url = f'https://sheets.googleapis.com/v4/spreadsheets/1YzOGbhTKaGTzfGbQJDdI6PSw8lXxcDpEQeeVLF4u2Dw?{ranges}fields=sheets(data(rowData(values(hyperlink))))'
-            res = requests.get(url, headers={"Authorization": "Bearer " + self.gc.auth.token})
-            links = res.json()['sheets'][0]['data']
-            for i in range(len(links)):
-                if len(links[i]) == 0:
-                    links[i] = ''
-                else:
-                    links[i] = links[i]['rowData'][0]['values'][0]['hyperlink']
+            # Create SS Embed Template
+            ss_emb = discord.Embed(
+                title=f"{emoji} {dropdown.values[0]} Scores (SS Sheet) <:SS:1041604124942270514>",
+                color=discord.Colour.blue())
+            ss_emb.set_author(name=interaction.guild.name)
+            if interaction.guild.icon != None:
+                ss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+                ss_emb.set_thumbnail(url=thb)
+            ss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+            ss_emb.timestamp = datetime.datetime.now()
 
-        # Add a field for each score
-        c = 0
-        for i in range(len(scores)):
-            for sc in scores[i]:
-                text = f'Score: **{sc[0]}**\nTime: **{sc[1]}**\n'
-                for j in sc[2:]:
-                    try:
-                        char = j.split('\n')
-                        text += f'**{char[0].strip()}**'
-                        if len(char) > 1:
-                            text += f': {char[1]}'
-                        text += '\n'
-                    except IndexError:
-                        continue
-                if len(links) != 0:
-                    if links[c] != '':
-                        text += f'**[Example]({links[c]})**'
+            # Get score data from the SS sheet
+            ssws = None
+            for a in aliases:
+                try:
+                    ssws = self.ss_sh.worksheet(a)
+                    break
+                except WorksheetNotFound:
+                    continue
+
+            scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
+            c = 0
+            for s in scores:
+                # example data: [[20262, '', '=HYPERLINK("https://youtu.be/oWRo7r32nfM", "0:09")'], []]
+                # if it's not a row divider but a score entry
+                if len(s) != 0:
+                    score = s[0]
+                    x = re.search(r'\(\"(.*)\",\"(.*)\"\)', s[2].replace(' ', ''))
+                    link = ''
+                    time = ''
+                    if x != None:
+                        link, time = x.groups()
+                    else:
+                        time = s[2]
+
+                    text = f'Score: **{score}**\nTime: **{time}**\n'
+                    
+                    if link != '':
+                        text += f'**[Example]({link})**'
+
+                    ss_emb.add_field(name=f"__{diff[c]}__", value=text, inline=True)
                     c += 1
-                emb.add_field(name=diff[i], value=text, inline=True)
+
+            # Create SSS Embed Template
+            sss_emb = discord.Embed(
+                title=f"{emoji} {dropdown.values[0]} Scores (SSS Sheet) <:SSS:1085394905242808373>",
+                color=discord.Colour.blue())
+            sss_emb.set_author(name=interaction.guild.name)
+            if interaction.guild.icon != None:
+                sss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+                sss_emb.set_thumbnail(url=thb)
+            sss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+            sss_emb.timestamp = datetime.datetime.now()
+
+            # Get score data from the SSS sheet
+            # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+            alias = aliases[0]
+            if len(aliases) > 1:
+                alias = aliases[2]
+
+            sssws = self.sss_sh.worksheet(alias)
+            
+            col = sssws.col_values(2)[4:]
+            char_col = sssws.col_values(4)
+            example_cols = sssws.col_values(13)
+            data = sssws.batch_get([f'B5:M{len(char_col)+1}'])[0]
+
+            data_sep = []
+            for i in range(len(diff)):
+                if i != len(diff)-1:
+                    idx = col.index(diff[i])
+                    idx_cont = col.index(diff[i+1])
+                    records = []
+                    for j in range((idx_cont-idx)//6):
+                        records.append(data[idx+(6*j):idx+(6*(j+1))])
+                    data_sep.append(records)
+                else:
+                    idx = col.index(diff[i])
+                    last = len(char_col)
+                    records = []
+                    for j in range((last-idx)//6):
+                        records.append(data[idx+(6*j):idx+(6*(j+1))])
+                    data_sep.append(records)
+
+            # data_sep[0][0] looks like this:
+            """
+            ['Test', '', 'Memory', 'Toniris CUB', 'Memory', 'Any CUB', 'Memory', 'Any CUB', '0:12', '20046']
+            ['', '', '2 Darwin', 'Matching Electrode', '2 Eins', '', '2 Gloria']
+            ['', '', '4 Hanna', 'Voltage Overload', '4 Da Vinci', '', '4 Heisen']
+            ['', '', '', 'Bi-magnetic Stim']
+            ['', '', '', 'Particle Relay']
+            ['', '', 'SSS Veritas', '', 'S Arclight', '', 'SSS+ Dawn', '', '', '', '', 'Example']
+            """
+
+            # Get hyperlink data from Whale sheet
+            links = []
+            ranges = ''
+            for i in range(len(example_cols)):
+                if example_cols[i] == 'Example':
+                    ranges += f'ranges={alias}!M{i+1}&'
+            
+            if ranges != '':
+                url = f'https://sheets.googleapis.com/v4/spreadsheets/1p3-_Bqp4NEpqEVEFUqthxeVlvwu5uXzJSoHa8ZoN5yk?{ranges}fields=sheets(data(rowData(values(hyperlink))))'
+                res = requests.get(url, headers={"Authorization": "Bearer " + self.gc.auth.token})
+                links = res.json()['sheets'][0]['data']
+                for i in range(len(links)):
+                    if len(links[i]) == 0:
+                        links[i] = ''
+                    else:
+                        links[i] = links[i]['rowData'][0]['values'][0]['hyperlink']
+
+            # Add a field for each score
+            c = 0
+            for i in range(len(diff)):
+                for d in data_sep[i]:
+                    time = d[0][8] # time '0:12'
+                    score = d[0][9] # score '20046'
+                    char = [d[5][2], d[5][4], d[5][6]] # char '[SSS Veritas, S Arclight, SSS+ Dawn]'
+                    cub = [d[0][3], d[0][5], d[0][7]] # cub '[Toniris CUB, Any CUB, Any CUB]'
+                    mem = [f"{d[1][2]} + {d[2][2]}", f"{d[1][4]} + {d[2][4]}", f"{d[1][6]} + {d[2][6]}"] # memory '["2 Darwin + 4 Hanna", "2 Eins + 4 Da Vinci", "2 Gloria + 4 Heisen"]'
+                    example_exist = 'Example' in d[5]
+
+                    text = f'Score: **{score}**\nTime: **{time}**\n'
+                    for x in range(len(char)):
+                        text += f'**{char[x]}**:\n{mem[x]}\n'
+
+                    if example_exist:
+                        if links[c] != '':
+                            text += f'**[Example]({links[c]})**'
+                        c += 1
+
+                    sss_emb.add_field(name=f"__{diff[i]}__", value=text, inline=True)
+
+            # Create Whale Embed Template
+            emb = discord.Embed(
+                title=f"{emoji} {dropdown.values[0]} Scores (Whale Sheet) <:SSSPlus:1041604127773442058>",
+                color=discord.Colour.blue())
+            emb.set_author(name=interaction.guild.name)
+            if interaction.guild.icon != None:
+                emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+                emb.set_thumbnail(url=thb)
+            emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+            emb.timestamp = datetime.datetime.now()
+
+            # Get score data from the Whale sheet
+            # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+            alias = aliases[0]
+            if len(aliases) > 1:
+                alias = aliases[1]
+
+            wws = self.whale_sh.worksheet(alias)
+
+            col = wws.col_values(3)[2:]
+            data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
+            #print(data)
+            split_condition = lambda x: x == []
+            grouper = groupby(data, key=split_condition)
+            scores = [list(group) for key, group in grouper if not key]
+            #print(scores)
+
+            # Get hyperlink data from Whale sheet
+            links = []
+            ranges = ''
+            row = 3
+            for d in data:
+                if len(d) != 0:
+                    ranges += f'ranges={alias}!H{row}&'
+                row += 1
+            
+            if ranges != '':
+                url = f'https://sheets.googleapis.com/v4/spreadsheets/1YzOGbhTKaGTzfGbQJDdI6PSw8lXxcDpEQeeVLF4u2Dw?{ranges}fields=sheets(data(rowData(values(hyperlink))))'
+                res = requests.get(url, headers={"Authorization": "Bearer " + self.gc.auth.token})
+                links = res.json()['sheets'][0]['data']
+                for i in range(len(links)):
+                    if len(links[i]) == 0:
+                        links[i] = ''
+                    else:
+                        links[i] = links[i]['rowData'][0]['values'][0]['hyperlink']
+
+            # Add a field for each score
+            c = 0
+            for i in range(len(scores)):
+                for sc in scores[i]:
+                    text = f'Score: **{sc[0]}**\nTime: **{sc[1]}**\n'
+                    for j in sc[2:]:
+                        try:
+                            char = j.split('\n')
+                            text += f'**{char[0].strip()}**:\n'
+                            if len(char) > 1:
+                                text += f'{char[1]}'
+                            text += '\n'
+                        except IndexError:
+                            continue
+                    if len(links) != 0:
+                        if links[c] != '':
+                            text += f'**[Example]({links[c]})**'
+                        c += 1
+                    emb.add_field(name=f"__{diff[i]}__", value=text, inline=True)
+            
+            self.boss_embed_cache[boss] = [ss_emb, sss_emb, emb]
+            self.boss_time_created_cache[boss] = datetime.datetime.now()
 
         # Button for pagination
-        pagination = Boss_Button_View(ss_emb, emb)
+        if skip:
+            last_cached = (datetime.datetime.now() - self.boss_time_created_cache[boss]).total_seconds()
+            ss_emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
+            sss_emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
+            emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
+        
+        pagination = Boss_Button_View(ss_emb, sss_emb, emb)
 
         # Send message
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
@@ -402,9 +526,10 @@ class PPC(commands.Cog):
     async def exppc_link(self, interaction: discord.Interaction) -> None:
         """Get the link to the EX-PPC spreadsheets"""
         ss_url = os.getenv('SS_PPC_SPREADSHEET')
+        sss_url = os.getenv('SSS_PPC_SPREADSHEET')
         whale_url = os.getenv('WHALE_PPC_SPREADSHEET')
         emb = discord.Embed(title='EX-PPC Spreadsheets')
-        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[Whale Spreadsheet]({whale_url})**')
+        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[SSS Spreadsheet]({sss_url})**\n**[Whale Spreadsheet]({whale_url})**')
         await interaction.response.send_message(embed=emb, ephemeral=True)
 
     @app_commands.command(name="exppc_update")
