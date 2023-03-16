@@ -37,7 +37,7 @@ query = [
 ]
 
 SS_TOTAL_SCORE_CELL = 'C12'
-#SSS_TOTAL_SCORE_CELL = 'XX'
+SSS_TOTAL_SCORE_CELL = 'A25'
 WHALE_TOTAL_SCORE_CELL = 'J4'
 
 def is_owner(interaction: discord.Interaction) -> bool:
@@ -178,6 +178,7 @@ class PPC(commands.Cog):
             raise ViewTimedOutError
         
         raw_ss_total = 0
+        raw_sss_total = 0
         raw_whale_total = 0
         
         icon0 = ''
@@ -218,6 +219,17 @@ class PPC(commands.Cog):
             raw_ss_total = 0
         try:
             for i in range(len(dropdown.values)):
+                # Get from SSS scores
+                alias = aliases[i][0]
+                if len(aliases[i]) > 1:
+                    alias = aliases[i][2] # sss aliases should always be on 2nd index
+                
+                sssws = self.sss_sh.worksheet(alias)
+                raw_sss_total += int(sssws.acell(SSS_TOTAL_SCORE_CELL).value)
+        except:
+            raw_sss_total = 0
+        try:
+            for i in range(len(dropdown.values)):
                 # Get from Whale scores
                 alias = aliases[i][0]
                 if len(aliases[i]) > 1:
@@ -245,7 +257,7 @@ class PPC(commands.Cog):
                 text += f'<:EXPPC3:1031556870994939934> <@&977900757972029461>: {conqueror}'
             emb.add_field(name='Required scores for roles:', value=text, inline=False)
 
-        emb.add_field(name='Max achievable scores:', value=f'Whale spreadsheet: **{raw_whale_total}**\nSS spreadsheet: **{raw_ss_total}**')
+        emb.add_field(name='Max achievable scores:', value=f'S+ spreadsheet: **{raw_whale_total}**\nSSS spreadsheet: **{raw_sss_total}**\nSS spreadsheet: **{raw_ss_total}**')
 
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
         await interaction.edit_original_response(embed=success, view=None)
@@ -370,8 +382,8 @@ class PPC(commands.Cog):
             
             col = sssws.col_values(2)[4:]
             char_col = sssws.col_values(4)
-            example_cols = sssws.col_values(13)
-            data = sssws.batch_get([f'B5:M{len(char_col)+1}'])[0]
+            example_cols = sssws.col_values(12)
+            data = sssws.batch_get([f'B5:L{len(char_col)+1}'])[0]
 
             data_sep = []
             for i in range(len(diff)):
@@ -405,7 +417,7 @@ class PPC(commands.Cog):
             ranges = ''
             for i in range(len(example_cols)):
                 if example_cols[i] == 'Example':
-                    ranges += f'ranges={alias}!M{i+1}&'
+                    ranges += f'ranges={alias}!L{i+1}&'
             
             if ranges != '':
                 url = f'https://sheets.googleapis.com/v4/spreadsheets/1p3-_Bqp4NEpqEVEFUqthxeVlvwu5uXzJSoHa8ZoN5yk?{ranges}fields=sheets(data(rowData(values(hyperlink))))'
@@ -441,7 +453,7 @@ class PPC(commands.Cog):
 
             # Create Whale Embed Template
             emb = discord.Embed(
-                title=f"{emoji} {dropdown.values[0]} Scores (Whale Sheet) <:SSSPlus:1041604127773442058>",
+                title=f"{emoji} {dropdown.values[0]} Scores (S+ Sheet) <:SSSPlus:1041604127773442058>",
                 color=discord.Colour.blue())
             emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
@@ -529,7 +541,7 @@ class PPC(commands.Cog):
         sss_url = os.getenv('SSS_PPC_SPREADSHEET')
         whale_url = os.getenv('WHALE_PPC_SPREADSHEET')
         emb = discord.Embed(title='EX-PPC Spreadsheets')
-        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[SSS Spreadsheet]({sss_url})**\n**[Whale Spreadsheet]({whale_url})**')
+        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[SSS Spreadsheet]({sss_url})**\n**[S+ Spreadsheet]({whale_url})**')
         await interaction.response.send_message(embed=emb, ephemeral=True)
 
     @app_commands.command(name="exppc_update")
