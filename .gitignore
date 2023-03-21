@@ -4,8 +4,10 @@ module_backups/
 configs/
 groups/
 reactions/
+database/
 err.log
 *.pyc
 service_account.json
 test.py
+test2.py
 todolist.txt

@@ -8,6 +8,8 @@ from gspread.utils import ValueRenderOption
 from gspread.exceptions import WorksheetNotFound
 from itertools import groupby
 import mongo
+from sqlite import SQLiteDB
+from config import MAIN_PATH
 
 import discord
 from discord.ext import commands
@@ -243,7 +245,7 @@ class PPC(commands.Cog):
         if interaction.guild.id == 887647011904557068:
             text = ''
             if raw_whale_total != 0:
-                # Whale max scores rounded down to nearest 10k (for S+)
+                # Whale max scores rounded down to nearest 10k (for SSS+)
                 overlord = math.floor(raw_whale_total / 10000) * 10000
                 text += f'<:EXPPC1:1031556662017921064> <@&983931530005057586>: {overlord}\n'
             if raw_ss_total != 0:
@@ -257,7 +259,7 @@ class PPC(commands.Cog):
                 text += f'<:EXPPC3:1031556870994939934> <@&977900757972029461>: {conqueror}'
             emb.add_field(name='Required scores for roles:', value=text, inline=False)
 
-        emb.add_field(name='Max achievable scores:', value=f'S+ spreadsheet: **{raw_whale_total}**\nSSS spreadsheet: **{raw_sss_total}**\nSS spreadsheet: **{raw_ss_total}**')
+        emb.add_field(name='Max achievable scores:', value=f'SSS+ spreadsheet: **{raw_whale_total}**\nSSS spreadsheet: **{raw_sss_total}**\nSS spreadsheet: **{raw_ss_total}**')
 
         success = utl.make_embed(desc="Success!", color=discord.Colour.green())
         await interaction.edit_original_response(embed=success, view=None)
@@ -453,7 +455,7 @@ class PPC(commands.Cog):
 
             # Create Whale Embed Template
             emb = discord.Embed(
-                title=f"{emoji} {dropdown.values[0]} Scores (S+ Sheet) <:SSSPlus:1041604127773442058>",
+                title=f"{emoji} {dropdown.values[0]} Scores (SSS+ Sheet) <:SSSPlus:1041604127773442058>",
                 color=discord.Colour.blue())
             emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
@@ -541,7 +543,7 @@ class PPC(commands.Cog):
         sss_url = os.getenv('SSS_PPC_SPREADSHEET')
         whale_url = os.getenv('WHALE_PPC_SPREADSHEET')
         emb = discord.Embed(title='EX-PPC Spreadsheets')
-        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[SSS Spreadsheet]({sss_url})**\n**[S+ Spreadsheet]({whale_url})**')
+        emb.add_field(name='Links:', value=f'**[SS Spreadsheet]({ss_url})**\n**[SSS Spreadsheet]({sss_url})**\n**[SSS+ Spreadsheet]({whale_url})**')
         await interaction.response.send_message(embed=emb, ephemeral=True)
 
     @app_commands.command(name="exppc_update")
@@ -554,6 +556,146 @@ class PPC(commands.Cog):
         self.update_bosses()
         emb = utl.make_embed(desc='EX-PPC scores updated!', color=discord.Colour.green())
         await interaction.edit_original_response(embed=emb)
+
+    @app_commands.command(name="exppc_sqlite_populate")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_owner)
+    @app_commands.describe(date='Manual insert date. (YYYY/MM/DD)')
+    async def exppc_sqlite_populate(self, interaction: discord.Interaction, date: str) -> None:
+        """Populate the database with this week's PPC score. (Skye only)"""
+        emb = utl.make_embed(desc='Populating data from spreadsheet...', color=discord.Colour.yellow())
+        await interaction.response.send_message(embed=emb, ephemeral=True)
+
+        current_boss = "" # this will be used for logging
+        current_rank = ""
+        try:
+            conn = SQLiteDB.create_connection(os.path.join(MAIN_PATH, "database", "exppc.db"))
+
+            SQLiteDB.add_bosses(conn, self.bosses)
+
+            diff = ['Test','Elite','Knight','Chaos','Hell']
+
+            today = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=7)))
+            if date != None:
+                today = datetime.datetime.strptime(date, '%Y/%m/%d')
+            start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%Y/%m/%d")
+
+            for boss in self.bosses:
+                current_boss = boss
+                
+                aliases = []
+                for b in self.boss_icons:
+                    if b['_id'] == boss:
+                        aliases = b['aliases']
+                records = []
+
+                # Get score data from the SS sheet
+                current_rank = "SS"
+                ssws = None
+                for a in aliases:
+                    try:
+                        ssws = self.ss_sh.worksheet(a)
+                        break
+                    except WorksheetNotFound:
+                        continue
+
+                scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
+                c = 0
+                for s in scores:
+                    # example data: [[20262, '', '=HYPERLINK("https://youtu.be/oWRo7r32nfM", "0:09")'], []]
+                    # if it's not a row divider but a score entry
+                    if len(s) != 0:
+                        score = s[0]
+                        x = re.search(r'\(\"(.*)\",\"(.*)\"\)', s[2].replace(' ', ''))
+                        time = ''
+                        if x != None:
+                            time = x.groups()[1]
+                        else:
+                            time = s[2]
+
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SS', 'diff':diff[c], 'time':time, 'score':score})
+                        c += 1
+
+                # Get score data from the SSS sheet
+                # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+                current_rank = "SSS"
+                alias = aliases[0]
+                if len(aliases) > 1:
+                    alias = aliases[2]
+
+                sssws = self.sss_sh.worksheet(alias)
+                
+                col = sssws.col_values(2)[4:]
+                char_col = sssws.col_values(4)
+                data = sssws.batch_get([f'B5:L{len(char_col)+1}'])[0]
+
+                data_sep = []
+                for i in range(len(diff)):
+                    if i != len(diff)-1:
+                        idx = col.index(diff[i])
+                        idx_cont = col.index(diff[i+1])
+                        rec = []
+                        for j in range((idx_cont-idx)//6):
+                            rec.append(data[idx+(6*j):idx+(6*(j+1))])
+                        data_sep.append(rec)
+                    else:
+                        idx = col.index(diff[i])
+                        last = len(char_col)
+                        rec = []
+                        for j in range((last-idx)//6):
+                            rec.append(data[idx+(6*j):idx+(6*(j+1))])
+                        data_sep.append(rec)
+
+                # data_sep[0][0] looks like this:
+                """
+                ['Test', '', 'Memory', 'Toniris CUB', 'Memory', 'Any CUB', 'Memory', 'Any CUB', '0:12', '20046']
+                ['', '', '2 Darwin', 'Matching Electrode', '2 Eins', '', '2 Gloria']
+                ['', '', '4 Hanna', 'Voltage Overload', '4 Da Vinci', '', '4 Heisen']
+                ['', '', '', 'Bi-magnetic Stim']
+                ['', '', '', 'Particle Relay']
+                ['', '', 'SSS Veritas', '', 'S Arclight', '', 'SSS+ Dawn', '', '', '', '', 'Example']
+                """
+
+                # Add a record for each score
+                for i in range(len(diff)):
+                    for d in data_sep[i]:
+                        time = d[0][8] # time '0:12'
+                        score = d[0][9] # score '20046'
+
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS', 'diff':diff[i], 'time':time, 'score':score})
+
+                # Get score data from the Whale sheet
+                current_rank = "SSS+"
+                # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+                alias = aliases[0]
+                if len(aliases) > 1:
+                    alias = aliases[1]
+
+                wws = self.whale_sh.worksheet(alias)
+
+                col = wws.col_values(3)[2:]
+                data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
+                #print(data)
+                split_condition = lambda x: x == []
+                grouper = groupby(data, key=split_condition)
+                scores = [list(group) for key, group in grouper if not key]
+                #print(scores)
+
+                # Add a record for each score
+                for i in range(len(scores)):
+                    for sc in scores[i]:
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS+', 'diff':diff[i], 'time':sc[1], 'score':sc[0]})
+
+                SQLiteDB.insert_records(conn, records)
+                conn.commit()
+                
+                emb = utl.make_embed(desc='Successfully added records to database!', color=discord.Colour.green())
+                await interaction.edit_original_response(embed=emb)
+        except:
+            print(f"Error on rank: {current_rank}, boss: {current_boss}")
+            raise
+        finally:
+            conn.close()
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
