@@ -327,7 +327,7 @@ class PPC(commands.Cog):
             ss_emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
                 ss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-                ss_emb.set_thumbnail(url=thb)
+            ss_emb.set_thumbnail(url=thb)
             ss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
             ss_emb.timestamp = datetime.datetime.now()
 
@@ -437,9 +437,27 @@ class PPC(commands.Cog):
                 for d in data_sep[i]:
                     time = d[0][8] # time '0:12'
                     score = d[0][9] # score '20046'
-                    char = [d[5][2], d[5][4], d[5][6]] # char '[SSS Veritas, S Arclight, SSS+ Dawn]'
+                    #char = [d[5][2], d[5][4], d[5][6]] # char '[SSS Veritas, S Arclight, SSS+ Dawn]'
+                    char = d[5][2:7:2]
                     cub = [d[0][3], d[0][5], d[0][7]] # cub '[Toniris CUB, Any CUB, Any CUB]'
-                    mem = [f"{d[1][2]} + {d[2][2]}", f"{d[1][4]} + {d[2][4]}", f"{d[1][6]} + {d[2][6]}"] # memory '["2 Darwin + 4 Hanna", "2 Eins + 4 Da Vinci", "2 Gloria + 4 Heisen"]'
+                    mem = []
+                    #mem = [f"{d[1][2]} + {d[2][2]}", f"{d[1][4]} + {d[2][4]}", f"{d[1][6]} + {d[2][6]}"] # memory '["2 Darwin + 4 Hanna", "2 Eins + 4 Da Vinci", "2 Gloria + 4 Heisen"]'
+                    _tempmem = d[1:4]
+                    n = []
+                    _num = 2
+                    for x in char:
+                        n.append(_num)
+                        _num += 2
+                    for y in range(len(n)):
+                        _temp = []
+                        for z in range(3):
+                            try:
+                                if _tempmem[z][n[y]] != "":
+                                    _temp.append(_tempmem[z][n[y]])
+                            except IndexError:
+                                pass
+                        mem.append(" + ".join(_temp))
+
                     example_exist = 'Example' in d[5]
 
                     text = f'Score: **{score}**\nTime: **{time}**\n'
@@ -460,7 +478,6 @@ class PPC(commands.Cog):
             emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
                 emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-                emb.set_thumbnail(url=thb)
             emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
             emb.timestamp = datetime.datetime.now()
 
@@ -525,10 +542,15 @@ class PPC(commands.Cog):
         # Button for pagination
         if skip:
             last_cached = (datetime.datetime.now() - self.boss_time_created_cache[boss]).total_seconds()
-            ss_emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
-            sss_emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
-            emb.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
-        
+            
+            for e in [ss_emb, sss_emb, emb]:
+                e.description = f"`Scores shown are from the last {int(last_cached // 60)} min(s)\nResults will update in {int(15 - last_cached // 60)} min(s).`"
+                e.set_author(name=interaction.guild.name)
+                if interaction.guild.icon != None:
+                    e.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+                    e.set_thumbnail(url=thb)
+                e.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+                e.timestamp = datetime.datetime.now()
         pagination = Boss_Button_View(ss_emb, sss_emb, emb)
 
         # Send message
@@ -576,10 +598,18 @@ class PPC(commands.Cog):
             diff = ['Test','Elite','Knight','Chaos','Hell']
 
             today = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=7)))
+            
             if date != None:
-                today = datetime.datetime.strptime(date, '%Y/%m/%d')
+                try:
+                    today = datetime.datetime.strptime(date, '%Y/%m/%d')
+                except ValueError:
+                    emb = utl.make_embed(desc='Date format error!', color=discord.Colour.red())
+                    await interaction.edit_original_response(embed=emb)
+                    return
+            
             start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%Y/%m/%d")
 
+            
             for boss in self.bosses:
                 current_boss = boss
                 
@@ -613,6 +643,7 @@ class PPC(commands.Cog):
                         else:
                             time = s[2]
 
+                        time = int((datetime.datetime.strptime(time, '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
                         records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SS', 'diff':diff[c], 'time':time, 'score':score})
                         c += 1
 
@@ -662,6 +693,7 @@ class PPC(commands.Cog):
                         time = d[0][8] # time '0:12'
                         score = d[0][9] # score '20046'
 
+                        time = int((datetime.datetime.strptime(time, '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
                         records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS', 'diff':diff[i], 'time':time, 'score':score})
 
                 # Get score data from the Whale sheet
@@ -684,7 +716,8 @@ class PPC(commands.Cog):
                 # Add a record for each score
                 for i in range(len(scores)):
                     for sc in scores[i]:
-                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS+', 'diff':diff[i], 'time':sc[1], 'score':sc[0]})
+                        time = int((datetime.datetime.strptime(sc[1], '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS+', 'diff':diff[i], 'time':time, 'score':sc[0]})
 
                 SQLiteDB.insert_records(conn, records)
                 conn.commit()
