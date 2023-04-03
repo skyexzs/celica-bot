@@ -84,9 +84,15 @@ async def on_message(msg: discord.Message):
 
     await bot.process_commands(msg)
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.CommandNotFound):
+        return
+    raise
+
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error):
-    if isinstance(error, commands.errors.CommandNotFound):
+    if isinstance(error, discord.app_commands.errors.CommandNotFound):
         return
     if isinstance(error, ViewTimedOutError):
         emb = discord.Embed(description="Timed out...", color=discord.Colour.red())

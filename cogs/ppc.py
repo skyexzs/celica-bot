@@ -291,6 +291,16 @@ class PPC(commands.Cog):
         if dropdown.success is False:
             raise ViewTimedOutError
 
+        # get boss resources
+        thb = ''
+        emoji = ''
+        aliases = []
+        for i in self.boss_icons:
+            if i['_id'] == dropdown.values[0]:
+                thb = i['thumbnail']
+                emoji = i['emoji']
+                aliases = i['aliases']
+
         # for testing
         # dropdown.values = ['Sharkspeare']
         
@@ -309,15 +319,6 @@ class PPC(commands.Cog):
                 skip = True
 
         if not skip:
-            thb = ''
-            emoji = ''
-            aliases = []
-            for i in self.boss_icons:
-                if i['_id'] == dropdown.values[0]:
-                    thb = i['thumbnail']
-                    emoji = i['emoji']
-                    aliases = i['aliases']
-
             diff = ['Test','Elite','Knight','Chaos','Hell']
 
             # Create SS Embed Template
@@ -370,7 +371,7 @@ class PPC(commands.Cog):
             sss_emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
                 sss_emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-                sss_emb.set_thumbnail(url=thb)
+            sss_emb.set_thumbnail(url=thb)
             sss_emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
             sss_emb.timestamp = datetime.datetime.now()
 
@@ -478,6 +479,7 @@ class PPC(commands.Cog):
             emb.set_author(name=interaction.guild.name)
             if interaction.guild.icon != None:
                 emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+            emb.set_thumbnail(url=thb)
             emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
             emb.timestamp = datetime.datetime.now()
 
@@ -548,7 +550,7 @@ class PPC(commands.Cog):
                 e.set_author(name=interaction.guild.name)
                 if interaction.guild.icon != None:
                     e.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-                    e.set_thumbnail(url=thb)
+                e.set_thumbnail(url=thb)
                 e.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
                 e.timestamp = datetime.datetime.now()
         pagination = Boss_Button_View(ss_emb, sss_emb, emb)
