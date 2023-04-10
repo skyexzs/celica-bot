@@ -245,17 +245,16 @@ class PPC(commands.Cog):
         if interaction.guild.id == 887647011904557068:
             text = ''
             if raw_whale_total != 0:
-                # Whale max scores rounded down to nearest 10k (for SSS+)
-                overlord = math.floor(raw_whale_total / 10000) * 10000
+                # Whale max scores rounded down to nearest 10k - 5000 (for SSS+)
+                overlord = (math.floor(raw_whale_total / 10000) * 10000) - 5000
                 text += f'<:EXPPC1:1031556662017921064> <@&983931530005057586>: {overlord}\n'
-            if raw_ss_total != 0:
-                # SS max scores rounded up to nearest 10k (for SSS)
-                # legend = math.ceil(raw_ss_total / 10000) * 10000
-                # SS max scores rounded up to nearest 5k
-                legend = math.ceil(raw_ss_total / 5000) * 5000
-                # SS max scores rounded down to nearest 10k and -10k (for SS)
-                conqueror = math.floor(raw_ss_total / 10000) * 10000 - 10000
+            if raw_sss_total != 0:
+                # SSS max scores rounded down to nearest 10k - 5000 (for SSS)
+                legend = (math.floor(raw_sss_total / 10000) * 10000) - 5000
                 text += f'<:EXPPC2:1031556773880008734> <@&1031387046016720908>: {legend}\n'
+            if raw_ss_total != 0:
+                # SS max scores rounded down to nearest 10k and -5k (for SS)
+                conqueror = (math.floor(raw_ss_total / 10000) * 10000) - 5000
                 text += f'<:EXPPC3:1031556870994939934> <@&977900757972029461>: {conqueror}'
             emb.add_field(name='Required scores for roles:', value=text, inline=False)
 
