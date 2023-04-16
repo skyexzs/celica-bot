@@ -247,15 +247,15 @@ class PPC(commands.Cog):
             if raw_whale_total != 0:
                 # Whale max scores rounded down to nearest 10k - 5000 (for SSS+)
                 overlord = (math.floor(raw_whale_total / 10000) * 10000) - 5000
-                text += f'<:gold1:1097168010671820860> <@&983931530005057586>: {overlord}\n'
+                text += f'<:Legend:1097168008536916059> <@&983931530005057586>: {overlord}\n'
             if raw_sss_total != 0:
                 # SSS max scores rounded down to nearest 10k - 5000 (for SSS)
                 legend = (math.floor(raw_sss_total / 10000) * 10000) - 5000
-                text += f'<:gold2:1097168015386234930> <@&1031387046016720908>: {legend}\n'
+                text += f'<:Hero:1097168015386234930> <@&1031387046016720908>: {legend}\n'
             if raw_ss_total != 0:
                 # SS max scores rounded down to nearest 10k and -5k (for SS)
                 conqueror = (math.floor(raw_ss_total / 10000) * 10000) - 5000
-                text += f'<:gold3:1097168008536916059> <@&977900757972029461>: {conqueror}'
+                text += f'<:GrandMaster:1097168010671820860> <@&977900757972029461>: {conqueror}'
             emb.add_field(name='Required scores for roles:', value=text, inline=False)
 
         emb.add_field(name='Max achievable scores:', value=f'SSS+ spreadsheet: **{raw_whale_total}**\nSSS spreadsheet: **{raw_sss_total}**\nSS spreadsheet: **{raw_ss_total}**')
