@@ -179,7 +179,7 @@ class Utilities(commands.Cog):
             with open(os.path.join(MAIN_PATH, 'err.log'), 'a') as f:
                 utl.log_error("gsync", error)
 
-    async def send_logs_to_test_server(message: str = None, emb: discord.Embed = None):
+    async def send_logs_to_test_server(self, message: str = None, emb: discord.Embed = None):
         guild = Utilities_Instance.bot.get_guild(487100763684864010)
         channel = guild.get_channel(1123649180611661925)
         if emb is not None:

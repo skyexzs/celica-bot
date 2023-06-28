@@ -11,19 +11,21 @@ import utils.utils as utl
 import scheduler
 
 UI : Utilities
+gc : Client
 
-async def run_schedulers(gc: Client, Utilities_Instance: Utilities):
+async def run_schedulers(gclient: Client, Utilities_Instance: Utilities):
+    global UI
+    global gc
     UI = Utilities_Instance
+    gc = gclient
     add_dates_jobid = 'gb_add_dates'
-    if scheduler.global_schdr.get_job(job_id=add_dates_jobid) is None:
-        now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
-        next_time = now + datetime.timedelta(days=1)
-        end_time = now + datetime.timedelta(days=2, hours=1)
-        scheduler.global_schdr.add_job(gb_add_dates_scheduler, 'cron', day_of_week='mon', hour='7', args=[gc], misfire_grace_time=172800, id=add_dates_jobid, replace_existing=True, max_instances=1000)
+    if scheduler.global_schdr.get_job(job_id=add_dates_jobid, jobstore='global') is None:
+        url = os.getenv('EXALTAIR_SPREADSHEET')
+        scheduler.global_schdr.add_job(gb_add_dates_scheduler, 'cron', day_of_week='mon', hour='7', args=[url], jobstore='global', misfire_grace_time=172800, id=add_dates_jobid, replace_existing=True, max_instances=1000)
         await UI.send_logs_to_test_server('Successfully created add_dates scheduler.')
 
-async def gb_add_dates_scheduler(gc: Client):
-    sh = gc.open_by_url(os.getenv('EXALTAIR_SPREADSHEET'))
+async def gb_add_dates_scheduler(url: str):
+    sh = gc.open_by_url(url)
     main_ws = sh.worksheet('Main')
     sub_ws = sh.worksheet('Sub')
 
@@ -78,4 +80,3 @@ async def gb_add_dates_scheduler(gc: Client):
         emb = utl.make_embed(desc=f"The guild battle date '{start_of_week}' already exist.", color=discord.Colour.red())
 
     await UI.send_logs_to_test_server(emb=emb)
-
