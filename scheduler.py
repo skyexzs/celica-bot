@@ -10,15 +10,20 @@ from pymongo import MongoClient
 
 schdr = None
 norman_schdr = None
+global_schdr = None
 
 def run_scheduler(mongo_conn, guilds: List[Guild]):
     global schdr
     global norman_schdr
+    global global_schdr
 
     client = MongoClient(mongo_conn)
 
     jobstores = {}
     norman_jobstores = {}
+    client['globalscheduler']['global']
+    global_jobstores = {}
+    global_jobstores['global'] = MongoDBJobStore(database='globalscheduler', collection='global', client=client)
     for g in guilds:
         client['serverdata'][str(g.id)]
         client['normanscheduler'][str(g.id)]
@@ -30,3 +35,6 @@ def run_scheduler(mongo_conn, guilds: List[Guild]):
 
     norman_schdr = AsyncIOScheduler(jobstores=norman_jobstores, timezone=utc)
     norman_schdr.start()
+
+    global_schdr = AsyncIOScheduler(jobstores=global_jobstores, timezone=utc)
+    global_schdr.start()

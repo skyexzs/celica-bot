@@ -13,6 +13,7 @@ import config
 from config import Config, MAIN_PATH
 from groups import Groups
 import scheduler
+import global_schdr
 import mongo
 from mongo import MongoDB
 
@@ -142,6 +143,8 @@ async def add_cogs():
     await bot.load_extension('cogs.ppc')
     await bot.load_extension('cogs.guild')
     await bot.load_extension('cogs.reaction')
+
+    global_schdr.run_schedulers(gc, cogs.utilities.Utilities_Instance)
     
 # try:
 #     bot.loop.create_task(scheduler.run_scheduler(os.getenv('MONGODB_CONN')))
