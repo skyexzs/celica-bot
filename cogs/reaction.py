@@ -1,9 +1,10 @@
 import os
+import re
 import json
 import random
 import emojis
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import discord
 from discord.ext import commands
@@ -219,6 +220,27 @@ class Reaction(commands.Cog):
         except:
             emb = utl.make_embed(desc=f"Failed to retrieve message ID: {msg_id} from this channel.", color=discord.Colour.red())
         await interaction.response.send_message(embed=emb, ephemeral=True)
+
+    @app_commands.command(name="enlarge")
+    @app_commands.describe(msg_id="The message ID to be checked",
+                           n="The n-th emoji in the message")
+    async def enlarge(self, interaction: discord.Interaction, msg_id: str, n: Optional[int] = 1):
+        """Get a emoji's link from a message"""
+        try:
+            msg : discord.Message = await interaction.channel.fetch_message(int(msg_id))
+            match = re.findall(r'(<[^>]+:([^>]+)>)', msg.content)
+            if len(match) > 0:
+                if n > len(match) or n < 1:
+                    await interaction.response.send_message("Cannot find emoji number " + str(n) + " in the message.", ephemeral=True)
+                    return
+                if "<a:" in match[n-1][0]:
+                    await interaction.response.send_message(f"https://cdn.discordapp.com/emojis/{match[n-1][1]}.gif?quality=lossless")
+                else:
+                    await interaction.response.send_message(f"https://cdn.discordapp.com/emojis/{match[n-1][1]}.png?quality=lossless")
+            else:
+                await interaction.response.send_message("Cannot find any emojis in the message.", ephemeral=True)
+        except Exception as e:
+            print(e)
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, ReactionDataEmptyError):
