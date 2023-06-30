@@ -304,13 +304,13 @@ class THT(commands.Cog):
 
                         # Check if category picked is warzone
                         if dropdown.value == 'wzmon' or dropdown.value == 'wzthu':
-                            start_day = start_date.weekday
+                            start_day = start_date.weekday()
                             if (start_day != 0 and dropdown.value == 'wzmon') or (start_day != 3 and dropdown.value == 'wzthu'):
                                 confirmview = THT_Button_View()
                                 confirmview.add_item(Button_UI('Confirm', discord.ButtonStyle.green))
 
-                                emb = utl.make_embed(desc=f"You chose [{dropdown.value}] but the start date is on {start_date.strftime('%A')}, are you sure?", color=discord.Colour.yellow())
-                                await interaction.edit_original_response(embed=emb, view=confirmview)
+                                confirmemb = utl.make_embed(desc=f"You chose [{dropdown.value}] but the start date is on {start_date.strftime('%A')}, are you sure?", color=discord.Colour.yellow())
+                                await interaction.edit_original_response(embed=confirmemb, view=confirmview)
                                 await confirmview.wait()
 
                                 if confirmview.value is None:
