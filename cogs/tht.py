@@ -121,6 +121,8 @@ class THT_Mode_Dropdown_UI(discord.ui.Select):
             discord.SelectOption(label='Surprise Special', value='surprise', emoji='<:ScreamAlpha:897855688880050256>'),
             discord.SelectOption(label='SOLO Specific', value='solo', emoji='<:BiancaScream:884098835050295356>'),
             discord.SelectOption(label='Class Specific', value='class', emoji='<:AylaScream:722561152382402611>'),
+            discord.SelectOption(label='Warzone Monday', value='wzmon', emoji='<:crown:977902954268999720>'),
+            discord.SelectOption(label='Warzone Thursday', value='wzthu', emoji='<:crown_p:977902966566707271>'),
             discord.SelectOption(label='15 MIN Random', value='15min', emoji='<:ScreamVera:899144731395760128>'),
             discord.SelectOption(label='5 MIN Random', value='5min', emoji='<:nanamiscream:728515428724244530>')
         ]
@@ -266,7 +268,7 @@ class THT(commands.Cog):
                     else:
                         thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
                         speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
-                        if dropdown.value in ('normal', 'specific', 'solo', 'class', 'special', 'surprise') and thtjob != None:
+                        if dropdown.value in ('normal', 'specific', 'solo', 'class', 'special', 'surprise', 'wzmon', 'wzthu') and thtjob != None:
                             emb = utl.make_embed(desc="There is a Normal THT event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
@@ -300,6 +302,20 @@ class THT(commands.Cog):
                         emb.set_footer(text=self.bot.user, icon_url=self.bot.user.display_avatar.url)
                         emb.timestamp = datetime.datetime.now()
 
+                        # Check if category picked is warzone
+                        if dropdown.value == 'wzmon' or dropdown.value == 'wzthu':
+                            start_day = start_date.weekday()
+                            if (start_day == 0 and dropdown.value == 'wzmon') or (start_day == 3 and dropdown.value == 'wzthu'):
+                                confirmview = THT_Button_View()
+                                confirmview.add_item(Button_UI('Confirm', discord.ButtonStyle.green))
+
+                                emb = utl.make_embed(desc=f"You chose [{dropdown.value}] but the start date is not at the right day, are you sure?", color=discord.Colour.yellow())
+                                await interaction.edit_original_response(embed=emb, view=confirmview)
+                                await confirmview.wait()
+
+                                if confirmview.value is None:
+                                    raise utl.ViewTimedOutError
+
                         end_date = 0
                         url = ''
                         job_id = 'thtscheduler'
@@ -321,6 +337,12 @@ class THT(commands.Cog):
                             if dropdown.value == 'surprise':
                                 url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890475081506906/THT_4.png'
                             pass
+                        elif dropdown.value == 'wzmon':
+                            end_date = start_date + datetime.timedelta(days=2, hours=13)
+                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1107313785313689682/test.png'
+                        elif dropdown.value == 'wzthu':
+                            end_date = start_date + datetime.timedelta(days=3, hours=13)
+                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1107313785313689682/test.png'
                         elif dropdown.value == '15min':
                             start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
                             end_date = start_date + datetime.timedelta(minutes=15)
@@ -332,7 +354,7 @@ class THT(commands.Cog):
                             start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
                             end_date = start_date + datetime.timedelta(minutes=5)
                             #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
-                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476457246761/THT_7.png'
+                            url = 'https://media.discordapp.net/attachments/738687482467450880/1062028169005244507/THT_Sample_8.png'
                             job_id = 'speedthtscheduler'
                             pass
                             

@@ -770,6 +770,140 @@ class PPC(commands.Cog):
         finally:
             conn.close()
 
+    async def exppc_sqlite_populate_scheduler(self) -> bool:
+        """Populate the database with this week's PPC score."""
+        current_boss = "" # this will be used for logging
+        current_rank = ""
+        success = True
+        try:
+            conn = SQLiteDB.create_connection(os.path.join(MAIN_PATH, "database", "exppc.db"))
+
+            SQLiteDB.add_bosses(conn, self.bosses)
+
+            diff = ['Test','Elite','Knight','Chaos','Hell']
+
+            today = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=7)))
+            start_of_week = (today - datetime.timedelta(days=today.weekday())).strftime("%Y/%m/%d")
+            
+            for boss in self.bosses:
+                current_boss = boss
+                
+                aliases = []
+                for b in self.boss_icons:
+                    if b['_id'] == boss:
+                        aliases = b['aliases']
+                records = []
+
+                # Get score data from the SS sheet
+                current_rank = "SS"
+                ssws = None
+                for a in aliases:
+                    try:
+                        ssws = self.ss_sh.worksheet(a)
+                        break
+                    except WorksheetNotFound:
+                        continue
+
+                scores = ssws.batch_get(['C2:E10'], value_render_option=ValueRenderOption.formula)[0]
+                c = 0
+                for s in scores:
+                    # example data: [[20262, '', '=HYPERLINK("https://youtu.be/oWRo7r32nfM", "0:09")'], []]
+                    # if it's not a row divider but a score entry
+                    if len(s) != 0:
+                        score = s[0]
+                        x = re.search(r'\(\"(.*)\",\"(.*)\"\)', s[2].replace(' ', ''))
+                        time = ''
+                        if x != None:
+                            time = x.groups()[1]
+                        else:
+                            time = s[2]
+
+                        time = int((datetime.datetime.strptime(time, '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SS', 'diff':diff[c], 'time':time, 'score':score})
+                        c += 1
+
+                # Get score data from the SSS sheet
+                # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+                current_rank = "SSS"
+                alias = aliases[0]
+                if len(aliases) > 1:
+                    alias = aliases[2]
+
+                sssws = self.sss_sh.worksheet(alias)
+                
+                col = sssws.col_values(2)[4:]
+                char_col = sssws.col_values(4)
+                data = sssws.batch_get([f'B5:L{len(char_col)+1}'])[0]
+
+                data_sep = []
+                for i in range(len(diff)):
+                    if i != len(diff)-1:
+                        idx = col.index(diff[i])
+                        idx_cont = col.index(diff[i+1])
+                        rec = []
+                        for j in range((idx_cont-idx)//6):
+                            rec.append(data[idx+(6*j):idx+(6*(j+1))])
+                        data_sep.append(rec)
+                    else:
+                        idx = col.index(diff[i])
+                        last = len(char_col)
+                        rec = []
+                        for j in range((last-idx)//6):
+                            rec.append(data[idx+(6*j):idx+(6*(j+1))])
+                        data_sep.append(rec)
+
+                # data_sep[0][0] looks like this:
+                """
+                ['Test', '', 'Memory', 'Toniris CUB', 'Memory', 'Any CUB', 'Memory', 'Any CUB', '0:12', '20046']
+                ['', '', '2 Darwin', 'Matching Electrode', '2 Eins', '', '2 Gloria']
+                ['', '', '4 Hanna', 'Voltage Overload', '4 Da Vinci', '', '4 Heisen']
+                ['', '', '', 'Bi-magnetic Stim']
+                ['', '', '', 'Particle Relay']
+                ['', '', 'SSS Veritas', '', 'S Arclight', '', 'SSS+ Dawn', '', '', '', '', 'Example']
+                """
+
+                # Add a record for each score
+                for i in range(len(diff)):
+                    for d in data_sep[i]:
+                        time = d[0][8] # time '0:12'
+                        score = d[0][9] # score '20046'
+
+                        time = int((datetime.datetime.strptime(time, '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS', 'diff':diff[i], 'time':time, 'score':score})
+
+                # Get score data from the Whale sheet
+                current_rank = "SSS+"
+                # aliases[0] should always be the name of boss from SS spreadsheet and [1] is from Whale and [2] is for SSS
+                alias = aliases[0]
+                if len(aliases) > 1:
+                    alias = aliases[1]
+
+                wws = self.whale_sh.worksheet(alias)
+
+                col = wws.col_values(3)[2:]
+                data = wws.batch_get([f'C3:G{3+len(col)-1}'])[0]
+                #print(data)
+                split_condition = lambda x: x == []
+                grouper = groupby(data, key=split_condition)
+                scores = [list(group) for key, group in grouper if not key]
+                #print(scores)
+
+                # Add a record for each score
+                for i in range(len(scores)):
+                    for sc in scores[i]:
+                        time = int((datetime.datetime.strptime(sc[1], '%M:%S') - datetime.datetime(1900,1,1)).total_seconds())
+                        records.append({'boss':boss, 'start_of_week':start_of_week, 'rank':'SSS+', 'diff':diff[i], 'time':time, 'score':sc[0]})
+
+                SQLiteDB.insert_records(conn, records)
+                conn.commit()
+        except Exception as e:
+            print(f"Error on rank: {current_rank}, boss: {current_boss}")
+            print(e)
+            success = False
+        finally:
+            conn.close()
+            return success
+
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
             emb = utl.make_embed(desc="You do not have the permission to run this command.", color=discord.Colour.red())

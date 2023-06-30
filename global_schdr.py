@@ -1,28 +1,39 @@
 import os
 import datetime
-import gspread
 from gspread import Client
 from xlsxwriter.utility import xl_col_to_name
-from cogs.utilities import Utilities
 
 import discord
 
 import utils.utils as utl
+from cogs.utilities import Utilities
+from cogs.ppc import PPC
 import scheduler
 
-UI : Utilities
 gc : Client
+UI : Utilities
+PI = PPC
 
-async def run_schedulers(gclient: Client, Utilities_Instance: Utilities):
-    global UI
+async def run_schedulers(gclient: Client, Utilities_Instance: Utilities, PPC_Instance: PPC):
     global gc
-    UI = Utilities_Instance
+    global UI
+    global PI
     gc = gclient
+    UI = Utilities_Instance
+    PI = PPC_Instance
+
+    # Add Dates
     add_dates_jobid = 'gb_add_dates'
     if scheduler.global_schdr.get_job(job_id=add_dates_jobid, jobstore='global') is None:
         url = os.getenv('EXALTAIR_SPREADSHEET')
         scheduler.global_schdr.add_job(gb_add_dates_scheduler, 'cron', day_of_week='mon', hour='7', args=[url], jobstore='global', misfire_grace_time=172800, id=add_dates_jobid, replace_existing=True, max_instances=1000)
         await UI.send_logs_to_test_server('Successfully created add_dates scheduler.')
+    
+    # EXPPC SQLite Populate
+    exppc_sqlite_populate_jobid = 'exppc_sqlite_populate'
+    if scheduler.global_schdr.get_job(job_id=exppc_sqlite_populate_jobid, jobstore='global') is None:
+        scheduler.global_schdr.add_job(exppc_sqlite_populate_scheduler, 'cron', day_of_week='mon', hour='5', jobstore='global', misfire_grace_time=172800, id=exppc_sqlite_populate_jobid, replace_existing=True, max_instances=1000)
+        await UI.send_logs_to_test_server('Successfully created exppc_sqlite_populate scheduler.')
 
 async def gb_add_dates_scheduler(url: str):
     sh = gc.open_by_url(url)
@@ -80,3 +91,16 @@ async def gb_add_dates_scheduler(url: str):
         emb = utl.make_embed(desc=f"The guild battle date '{start_of_week}' already exist.", color=discord.Colour.red())
 
     await UI.send_logs_to_test_server(emb=emb)
+
+async def exppc_sqlite_populate_scheduler():
+    emb = utl.make_embed(desc='Populating data from spreadsheet...', color=discord.Colour.yellow())
+    await UI.send_logs_to_test_server(emb=emb)
+
+    success = await PI.exppc_sqlite_populate_scheduler()
+
+    if success:
+        emb = utl.make_embed(desc='Successfully added records to database!', color=discord.Colour.green())
+        await UI.send_logs_to_test_server(emb=emb)
+    else:
+        emb = utl.make_embed(desc='Error during EX-PPC SQLite population!', color=discord.Colour.red())
+        await UI.send_logs_to_test_server(emb=emb)
