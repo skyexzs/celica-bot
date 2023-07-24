@@ -115,16 +115,20 @@ class THT_Create_Or_Stop_View(THT_Button_View):
 class THT_Mode_Dropdown_UI(discord.ui.Select):
     def __init__(self, parent):
         options = [
-            discord.SelectOption(label='Normal', value='normal', emoji='<:nanamiscream:728515428724244530>'),
-            discord.SelectOption(label='Specific Zone', value='specific', emoji='<:QuScream:719833336888950805>'),
-            discord.SelectOption(label='Special', value='special', emoji='<:ScreamRosetta:892739847603765248>'),
-            discord.SelectOption(label='Surprise Special', value='surprise', emoji='<:ScreamAlpha:897855688880050256>'),
-            discord.SelectOption(label='SOLO Specific', value='solo', emoji='<:BiancaScream:884098835050295356>'),
-            discord.SelectOption(label='Class Specific', value='class', emoji='<:AylaScream:722561152382402611>'),
-            discord.SelectOption(label='Warzone Monday', value='wzmon', emoji='<:crown:977902954268999720>'),
-            discord.SelectOption(label='Warzone Thursday', value='wzthu', emoji='<:crown_p:977902966566707271>'),
-            discord.SelectOption(label='15 MIN Random', value='15min', emoji='<:ScreamVera:899144731395760128>'),
-            discord.SelectOption(label='5 MIN Random', value='5min', emoji='<:nanamiscream:728515428724244530>')
+            discord.SelectOption(label='Normal', value='normal', emoji='<:Garnet:1097426043037552670>'),
+            discord.SelectOption(label='Normal GBTower', value='normalgbt', emoji='<:Pavo:1097426063438659654>'),
+            discord.SelectOption(label='Special', value='special', emoji='<:Laurel:1097426053003227156>'),
+            discord.SelectOption(label='Special GBTower', value='specialgbt', emoji='<:Glory:1097426045038248097>'),
+            discord.SelectOption(label='Surprise Special', value='surprise', emoji='<:Tempest:1097426203561955338>'),
+            discord.SelectOption(label='Specific', value='specific', emoji='<:Abystigma:1097442713869225984>'),
+            discord.SelectOption(label='SOLO Specific', value='solo', emoji='<:2B:1097426015472590848>'),
+            discord.SelectOption(label='CLASS Specific', value='class', emoji='<:Pavo:1097426063438659654>'),
+            discord.SelectOption(label='Combination', value='combi', emoji='<:Vitrum:1097426087539118090>'),
+            discord.SelectOption(label='Warzone Monday', value='wzmon', emoji='<:CrimsonWeave:1097441532455424011>'),
+            discord.SelectOption(label='Warzone Thursday', value='wzthu', emoji='<:CrimsonWeave:1097441532455424011>'),
+            discord.SelectOption(label='Phantom Pain Cage', value='ppc', emoji='<:Capriccio:1097444869070401659>'),
+            discord.SelectOption(label='Rapid', value='15min', emoji='<:Plume:1097426066664067152>'),
+            discord.SelectOption(label='Blitz', value='5min', emoji='<:Kaleido:1097426049807175691>')
         ]
 
         super().__init__(placeholder='Choose the type of THT...', min_values=1, max_values=1, options=options)
@@ -268,7 +272,7 @@ class THT(commands.Cog):
                     else:
                         thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
                         speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
-                        if dropdown.value in ('normal', 'specific', 'solo', 'class', 'special', 'surprise', 'wzmon', 'wzthu') and thtjob != None:
+                        if dropdown.value in ('normal', 'normalgbt', 'special', 'specialgbt', 'surprise', 'specific', 'solo', 'class', 'combi', 'wzmon', 'wzthu', 'ppc') and thtjob != None:
                             emb = utl.make_embed(desc="There is a Normal THT event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
@@ -319,42 +323,50 @@ class THT(commands.Cog):
                         end_date = 0
                         url = ''
                         job_id = 'thtscheduler'
-                        if dropdown.value in ('normal', 'specific', 'solo', 'class'):
+                        if dropdown.value in ('normal', 'normalgbt', 'specific', 'solo', 'class', 'combi', 'ppc'):
                             end_date = start_date + datetime.timedelta(days=7)
                             if dropdown.value == 'normal':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890473688997948/THT_1.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_normal.png'
+                            if dropdown.value == 'normalgbt':
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_normal_gbtower.png'
                             if dropdown.value == 'specific':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890474175528960/THT_2.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_specific_zone.png'
                             if dropdown.value == 'solo':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890475467382844/THT_5.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_solo_specific_zone.png'
                             if dropdown.value == 'class':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476029411410/THT_6.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_class_specific_zone.png'
+                            if dropdown.value == 'combi':
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_combination.png'
+                            if dropdown.value == 'ppc':
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_pcr.png'
                             pass
-                        elif dropdown.value in ('special','surprise'):
+                        elif dropdown.value in ('special', 'specialgbt', 'surprise'):
                             end_date = start_date + datetime.timedelta(days=5)
                             if dropdown.value == 'special':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890474687250432/THT_3.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_special.png'
+                            if dropdown.value == 'specialgbt':
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_special_gbtower.png'
                             if dropdown.value == 'surprise':
-                                url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890475081506906/THT_4.png'
+                                url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_surprise_special.png'
                             pass
                         elif dropdown.value == 'wzmon':
                             end_date = start_date + datetime.timedelta(days=2, hours=13)
-                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1107313785313689682/test.png'
+                            url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_wzr.png'
                         elif dropdown.value == 'wzthu':
                             end_date = start_date + datetime.timedelta(days=3, hours=13)
-                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1107313785313689682/test.png'
+                            url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_wzr.png'
                         elif dropdown.value == '15min':
                             start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
                             end_date = start_date + datetime.timedelta(minutes=15)
                             #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
-                            url = 'https://cdn.discordapp.com/attachments/738687482467450880/1028890476457246761/THT_7.png'
+                            url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_rapid.png'
                             job_id = 'speedthtscheduler'
                             pass
                         elif dropdown.value == '5min':
                             start_date = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
                             end_date = start_date + datetime.timedelta(minutes=5)
                             #end_date = datetime.datetime.fromtimestamp(1665993480, tz=datetime.timezone(datetime.timedelta(hours=8))) for testing
-                            url = 'https://media.discordapp.net/attachments/738687482467450880/1062028169005244507/THT_Sample_8.png'
+                            url = 'https://raw.githubusercontent.com/skyexzs/database/main/exaltair/xar/xar_gbr_blitz.png'
                             job_id = 'speedthtscheduler'
                             pass
                             
