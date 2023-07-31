@@ -57,7 +57,7 @@ async def stop_tht_event(guild_id: int, channel_id: int, role_id: int, type: str
         for m in muted_role.members:
             await m.remove_roles(muted_role)
 
-    emb = utl.make_embed(desc='The THT event is now over. Please wait for the next announcement.', color=discord.Colour.red())
+    emb = utl.make_embed(desc='The XAR event is now over. Please wait for the next announcement.', color=discord.Colour.red())
     await channel.set_permissions(role, send_messages=False)
     await channel.send(embed=emb)
 
@@ -235,18 +235,18 @@ class THT(commands.Cog):
     @app_commands.command(name="tht")
     @app_commands.default_permissions(administrator=True)
     async def tht(self, interaction: discord.Interaction) -> None:
-        """Starts THT Event."""
+        """Starts XAR Event."""
         try:
             role = Config.read_config(interaction.guild)["tht_role"]
             muted_role = Config.read_config(interaction.guild)["tht_role_muted"]
             if role == 0 or interaction.guild.get_role(role) == None or muted_role == 0 or interaction.guild.get_role(muted_role) == None:
                 Config.insert_config(interaction.guild, "tht_role", 0)
                 Config.insert_config(interaction.guild, "tht_role_muted", 0)
-                emb = utl.make_embed(desc="THT roles are not yet set.", color=discord.Colour.red())
+                emb = utl.make_embed(desc="XAR roles are not yet set.", color=discord.Colour.red())
                 await interaction.response.send_message(embed=emb, ephemeral=True)
             else:
                 view = THT_Create_Or_Stop_View(interaction.guild.id)
-                emb = utl.make_embed(desc="Do you want to create or stop a THT event?", color=discord.Colour.yellow())
+                emb = utl.make_embed(desc="Do you want to create or stop a XAR event?", color=discord.Colour.yellow())
                 await interaction.response.send_message(embed=emb, ephemeral=True, view=view)
                 await view.wait()
                 if view.value is None:
@@ -255,8 +255,8 @@ class THT(commands.Cog):
                     dropdown = THT_Mode_Selection_View()
 
                     emb = discord.Embed(
-                        title="THT Event",
-                        description="Choose the type of THT in the list below to start.",
+                        title="XAR Event",
+                        description="Choose the type of XAR in the list below to start.",
                         color=discord.Colour.gold())
                     emb.set_author(name=interaction.user, icon_url=interaction.user.display_avatar.url)
                     emb.set_footer(text=self.bot.user, icon_url=self.bot.user.display_avatar.url)
@@ -273,18 +273,18 @@ class THT(commands.Cog):
                         thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
                         speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
                         if dropdown.value in ('normal', 'normalgbt', 'special', 'specialgbt', 'surprise', 'specific', 'solo', 'class', 'combi', 'wzmon', 'wzthu', 'ppc') and thtjob != None:
-                            emb = utl.make_embed(desc="There is a Normal THT event running already.", color=discord.Colour.red())
+                            emb = utl.make_embed(desc="There is a Normal XAR event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
                         elif (dropdown.value == '15min' or dropdown.value == '5min') and speedthtjob != None:
-                            emb = utl.make_embed(desc="There is a Speed THT event running already.", color=discord.Colour.red())
+                            emb = utl.make_embed(desc="There is a Speed XAR event running already.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
                             
                         confirmview = THT_Button_View()
                         confirmview.add_item(Button_UI('Confirm', discord.ButtonStyle.green))
 
-                        emb = utl.make_embed(desc=f"Are you sure you want to create a [{dropdown.value}] THT?", color=discord.Colour.yellow())
+                        emb = utl.make_embed(desc=f"Are you sure you want to create a [{dropdown.value}] XAR?", color=discord.Colour.yellow())
                         await interaction.edit_original_response(embed=emb, view=confirmview)
                         await confirmview.wait()
 
@@ -295,7 +295,7 @@ class THT(commands.Cog):
                         message_data = await mongo.Mongo_Instance.get_data(interaction.guild, query)
 
                         if message_data == None:
-                            emb = utl.make_embed(desc="THT message to be sent is not yet set.", color=discord.Colour.red())
+                            emb = utl.make_embed(desc="XAR message to be sent is not yet set.", color=discord.Colour.red())
                             await interaction.edit_original_response(embed=emb, view=None)
                             return
 
@@ -409,7 +409,7 @@ class THT(commands.Cog):
                         confirmview = THT_Button_View()
                         confirmview.add_item(Button_UI('Confirm', discord.ButtonStyle.green))
 
-                        emb = utl.make_embed(desc=f"Are you sure you want to stop {stopview.value} THT?", color=discord.Colour.yellow())
+                        emb = utl.make_embed(desc=f"Are you sure you want to stop {stopview.value} XAR?", color=discord.Colour.yellow())
                         await interaction.edit_original_response(embed=emb, view=confirmview)
                         await confirmview.wait()
 
@@ -417,13 +417,13 @@ class THT(commands.Cog):
                             raise utl.ViewTimedOutError
                         else:
                             if stopview.value == 'Normal':
-                                # Normal THT
+                                # Normal XAR
                                 scheduler.schdr.remove_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
-                                emb = utl.make_embed(desc=f"Stopped scheduler for Normal THT.", color=discord.Colour.green())
+                                emb = utl.make_embed(desc=f"Stopped scheduler for Normal XAR.", color=discord.Colour.green())
                             else:
-                                # 15 Min THT or 5 Min THT (Speed THT)
+                                # 15 Min XAR or 5 Min XAR (Speed XAR)
                                 scheduler.schdr.remove_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
-                                emb = utl.make_embed(desc=f"Stopped scheduler for Speed THT.", color=discord.Colour.green())
+                                emb = utl.make_embed(desc=f"Stopped scheduler for Speed XAR.", color=discord.Colour.green())
                             await interaction.edit_original_response(embed=emb, view=None)
 
         except utl.ViewTimedOutError:
@@ -482,15 +482,15 @@ class THT(commands.Cog):
     @commands.command(aliases=['thtr'])
     @commands.has_permissions(administrator=True)
     async def thtrole(self, ctx, role: discord.Role, role2: discord.Role):
-        """Set the role for THT Participants."""
+        """Set the role for XAR Participants."""
         if role is ctx.guild.roles[0] or role2 is ctx.guild.roles[0]:
-            emb = utl.make_embed(desc="THT roles should not be set to everyone.", color=discord.Colour.red())
+            emb = utl.make_embed(desc="XAR roles should not be set to everyone.", color=discord.Colour.red())
         elif role == role2:
-            emb = utl.make_embed(desc="Normal and Muted THT role should not be the same.", color=discord.Colour.red())
+            emb = utl.make_embed(desc="Normal and Muted XAR role should not be the same.", color=discord.Colour.red())
         else:
             Config.insert_config(ctx.guild, "tht_role", role.id)
             Config.insert_config(ctx.guild, "tht_role_muted", role2.id)
-            emb = utl.make_embed(desc=f"THT role set to <@&{str(role.id)}> and Muted role set to <@&{str(role2.id)}>.", color=discord.Colour.green())
+            emb = utl.make_embed(desc=f"XAR role set to <@&{str(role.id)}> and Muted role set to <@&{str(role2.id)}>.", color=discord.Colour.green())
         await utl.send_embed(ctx, emb)
 
     @thtrole.error
@@ -510,11 +510,11 @@ class THT(commands.Cog):
                 id = 0
                 id2 = 0
             if ctx.guild.get_role(id) != None and ctx.guild.get_role(id2) != None:
-                emb = utl.make_embed(desc=f"THT role has been set to <@&{str(id)}> and Muted role set to <@&{str(id2)}>.", color=discord.Colour.green())
+                emb = utl.make_embed(desc=f"XAR role has been set to <@&{str(id)}> and Muted role set to <@&{str(id2)}>.", color=discord.Colour.green())
             else:
                 Config.insert_config(ctx.guild, "tht_role", 0)
                 Config.insert_config(ctx.guild, "tht_role_muted", 0)
-                emb = utl.make_embed(desc="THT roles are not yet set.", color=discord.Colour.red())
+                emb = utl.make_embed(desc="XAR roles are not yet set.", color=discord.Colour.red())
             await utl.send_embed(ctx, emb)
         else:
             error_emb = utl.make_embed(desc="An unknown error has occurred. Please contact the administrator.", color=discord.Colour.red())

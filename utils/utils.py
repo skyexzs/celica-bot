@@ -74,7 +74,7 @@ def make_embed(title="", desc="", color=discord.Colour.teal(), name="", value="�
 
     return emb
 
-def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Member, uid, guild, progress, this_week: bool, gb_dates):
+def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Member, uid, guild, progress, this_week: bool, gb_dates, referrer: str, refers: list[str]):
     text = ''
     warnings = 0
     warn_dates = ''
@@ -125,6 +125,7 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     if (member.display_avatar != None):
         emb.set_thumbnail(url=member.display_avatar.url)
 
+    # GB Completion
     if this_week is True:
         emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':white_check_mark: The mods have marked your GB completion.', inline=False)
     elif this_week is False:
@@ -132,13 +133,23 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     else:
         emb.add_field(name=f':calendar_spiral: This week {start_of_week}', value=':white_circle: You are exempted from doing GB this week.', inline=False)
     
+    # Warnings
     if warnings > 0:
         emb.add_field(name=':warning: Warnings', value=f'You have {warnings} warning(s) for previously missing a guild battle.{warn_dates}', inline=False)
+    
+    refs = False
+    # Referrals
+    if referrer != "":
+        refs = True
+        emb.add_field(name=f':bust_in_silhouette: {referrer} referred you to join Exaltair!', value=f'\u200b', inline=False)
+    elif len(refers) > 0:
+        refs = True
+        emb.add_field(name=f':busts_in_silhouette: You have referred {len(refers)} member(s) to join Exaltair! Thanks <3', value=f':incoming_envelope: {", ".join(refers)}', inline=False)
 
     if member.joined_at != None:
         jointime = member.joined_at.astimezone(tz=datetime.timezone(datetime.timedelta(hours=8)))
         jointime = jointime.strftime("%d/%m/%Y ")
-        boost = '\u200b'
+        boost = '\u200b' if not refs else ''
         if member.premium_since != None:
             boost = '**<:boost:1041634239541686272> Thanks for boosting this server! ❤️**'
         emb.add_field(name=f'\u200b\n:pencil: You joined this server on {jointime}', value=boost, inline=False)

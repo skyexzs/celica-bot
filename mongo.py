@@ -48,6 +48,14 @@ class MongoDB():
             
         col.update_one(query, data, upsert=True)
 
+    async def insert_many(self, guild: Guild, data, database: str = None):
+        col = self.db[str(guild.id)]
+
+        if database != None:
+            col = self.client[database][str(guild.id)]
+            
+        col.insert_many(data)
+
     async def delete_data(self, guild: Guild, query, database: str = None):
         col = self.db[str(guild.id)]
 

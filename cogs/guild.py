@@ -14,6 +14,7 @@ from utils import utils as utl
 from utils.utils import ViewTimedOutError
 from utils.models import Button_UI
 from utils.models import Button_View
+import mongo
 from config import Config
 from bot import gc
 
@@ -277,6 +278,12 @@ class PGR_Guild(commands.Cog):
                             await member.add_roles(discord.Object(exaltairs), discord.Object(sub))
                     except KeyError:
                         pass
+
+                # Add to referral database
+                query = { '_id': str(member.id) }
+                to_add = {"$set": {"_id": str(member.id), "name": str(member), "created_at": member.created_at, "joined_at": member.joined_at, "referrer": "", "refers": []} }
+                await mongo.Mongo_Instance.insert_data(interaction.guild, query, to_add, "memberdata")
+
                 emb = utl.make_embed(desc=f"Added <@{member.id}> (UID: {uid}) to {guild.name} guild.", color=discord.Colour.green())
                 await interaction.followup.send(embed=emb)
                 return
@@ -696,6 +703,57 @@ class PGR_Guild(commands.Cog):
         emb = utl.make_embed(desc=f"Updated the names for members in {guild.name} guild.{text}", color=discord.Colour.green())
         await interaction.edit_original_response(embed=emb)
     
+    @members.command(name='populatedb')
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(role='Role to add from?')
+    async def members_populatedb(self, interaction: discord.Interaction, role: discord.Role) -> None:
+        """Adds all current guild members to the server database"""
+        emb = utl.make_embed(desc='Adding guild members to database...', color=discord.Colour.yellow())
+        await interaction.response.send_message(embed=emb, ephemeral=True)
+        members_raw : list[discord.Member] = role.members
+        members_final: list[dict] = []
+        for m in members_raw:
+            members_final.append({"_id": str(m.id), "name": str(m), "created_at": m.created_at, "joined_at": m.joined_at, "referrer": "", "refers": []})
+        await mongo.Mongo_Instance.insert_many(interaction.guild, members_final, "memberdata")
+
+        emb = utl.make_embed(desc=f'Successfully added members from <@&{role.id}> to database!', color=discord.Colour.green())
+        await interaction.edit_original_response(embed=emb)
+
+    @members.command(name='referral')
+    @is_gm()
+    @app_commands.describe(referrer='The one who invites.', refers="The one who got invited.")
+    async def members_referral(self, interaction: discord.Interaction, referrer: discord.Member, refers: discord.Member) -> None:
+        """Sets a referrer for a guild member"""
+        query = { '_id': str(referrer.id) }
+        query2 = { '_id': str(refers.id) }
+        rfrer = await mongo.Mongo_Instance.get_data(interaction.guild, query, 'memberdata')
+        rfred = await mongo.Mongo_Instance.get_data(interaction.guild, query2, 'memberdata')
+
+        if rfrer != None and rfred != None:
+            if rfrer['referrer'] != "":
+                emb = utl.make_embed(desc=f'<@{referrer.id}> already has a referrer, they cannot refer others!', color=discord.Colour.red())
+                await interaction.response.send_message(embed=emb)
+                return
+            else:
+                # Add referred to referrer
+                refs = rfrer['refers']
+                refs.append(refers.id)
+                data = { '$set': {'refers': refs} }
+                await mongo.Mongo_Instance.insert_data(interaction.guild, query, data, 'memberdata')
+                
+                # Add referrer to referred
+                data2 = { '$set': {'referrer': referrer.id} }
+                await mongo.Mongo_Instance.insert_data(interaction.guild, query2, data2, 'memberdata')
+
+                emb = utl.make_embed(desc=f'Successfully added <@{referrer.id}> as the referrer of <@{refers.id}>!', color=discord.Colour.green())
+                await interaction.response.send_message(embed=emb)
+                return
+        else:
+            r = referrer.id if rfrer is None else refers.id
+            emb = utl.make_embed(desc=f'<@{r}> cannot be found in database!', color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb)
+            return
+
     @app_commands.command(name='find')
     @app_commands.describe(member='The member to find')
     async def find(self, interaction: discord.Interaction, member: discord.Member) -> None:
@@ -879,7 +937,19 @@ class PGR_Guild(commands.Cog):
             else:
                 done = done[0][0]
        
-        emb = utl.make_gb_progress_embed(interaction, mem, uid, guild, progress, done, gb_dates)
+        query = { '_id': str(mem.id) }
+        player_data = await mongo.Mongo_Instance.get_data(interaction.guild, query, 'memberdata')
+        referrer = ''
+        refers = []
+        if player_data != None:
+            referrer = "@"+ str(interaction.guild.get_member(int(player_data['referrer']))) if player_data['referrer'] != '' else ''
+            refers_data = player_data['refers']
+            for r in refers_data:
+                m = interaction.guild.get_member(int(r))
+                if m != None:
+                    refers.append("@"+str(m))
+
+        emb = utl.make_gb_progress_embed(interaction, mem, uid, guild, progress, done, gb_dates, referrer, refers)
         await interaction.followup.send(embed=emb)
 
     @gb.command(name='progress')
