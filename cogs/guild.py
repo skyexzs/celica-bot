@@ -333,6 +333,7 @@ class PGR_Guild(commands.Cog):
             return
         
         records = [m for m in data if m[0] == (str(member.id))]
+
         # If member has multiple ids
         if len(records) > 1:
             idview = Button_View(20)
@@ -724,6 +725,11 @@ class PGR_Guild(commands.Cog):
     @app_commands.describe(referrer='The one who invites.', refers="The one who got invited.")
     async def members_referral(self, interaction: discord.Interaction, referrer: discord.Member, refers: discord.Member) -> None:
         """Sets a referrer for a guild member"""
+        if referrer is refers:
+            emb = utl.make_embed(desc=f'Referrer cannot be the same person as the referred.', color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb)
+            return
+        
         query = { '_id': str(referrer.id) }
         query2 = { '_id': str(refers.id) }
         rfrer = await mongo.Mongo_Instance.get_data(interaction.guild, query, 'memberdata')
@@ -732,6 +738,10 @@ class PGR_Guild(commands.Cog):
         if rfrer != None and rfred != None:
             if rfrer['referrer'] != "":
                 emb = utl.make_embed(desc=f'<@{referrer.id}> already has a referrer, they cannot refer others!', color=discord.Colour.red())
+                await interaction.response.send_message(embed=emb)
+                return
+            if len(rfred['refers']) > 0:
+                emb = utl.make_embed(desc=f'<@{referrer.id}> is already a referrer, they cannot be referred by others!', color=discord.Colour.red())
                 await interaction.response.send_message(embed=emb)
                 return
             else:
@@ -751,6 +761,57 @@ class PGR_Guild(commands.Cog):
         else:
             r = referrer.id if rfrer is None else refers.id
             emb = utl.make_embed(desc=f'<@{r}> cannot be found in database!', color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb)
+            return
+        
+    @members.command(name='delref')
+    @is_gm()
+    @app_commands.describe(member='The member whose referral status will be deleted.')
+    async def members_delref(self, interaction: discord.Interaction, member: discord.Member) -> None:
+        """Deletes a member's referral status"""
+        query = { '_id': str(member.id) }
+        member_data = await mongo.Mongo_Instance.get_data(interaction.guild, query, 'memberdata')
+
+        if member_data['referrer'] != '':
+            # Member has a referrer
+            referrer = member_data['referrer']
+            query2 = { '_id': referrer }
+            referrer_data = await mongo.Mongo_Instance.get_data(interaction.guild, query2, 'memberdata')
+
+            data = { '$set': {'referrer': ''} }
+            await mongo.Mongo_Instance.insert_data(interaction.guild, query, data, 'memberdata')
+
+            refers : list[str] = referrer_data['refers']
+            refers.remove(str(member.id))
+            data2 = { '$set': {'refers': refers} }
+            await mongo.Mongo_Instance.insert_data(interaction.guild, query2, data2, 'memberdata')
+
+            emb = utl.make_embed(desc=f'Successfully removed <@{member.id}> from all referrals!', color=discord.Colour.green())
+            await interaction.response.send_message(embed=emb)
+            return
+        elif len(member_data['refers']) > 0:
+            # Member has referred people
+            confirm = Confirm_Or_Cancel_View(20)
+            await confirm.send(interaction, f'You are about to remove <@{member.id}> who is a referrer. Are you sure?')
+            await confirm.wait()
+
+            if confirm.value is None:
+                raise ViewTimedOutError
+            elif confirm.value == 'Confirm':
+                refers : list[str] = member_data['refers']
+                for r in refers:
+                    query2 = { '_id': r }
+                    data2 = { '$set': {'referrer': ''} }
+                    await mongo.Mongo_Instance.insert_data(interaction.guild, query2, data2, 'memberdata')
+                data = { '$set': {'refers': [] }}
+                await mongo.Mongo_Instance.insert_data(interaction.guild, query, data, 'memberdata')
+
+                emb = utl.make_embed(desc=f'Successfully removed <@{member.id}> from all referrals!', color=discord.Colour.green())
+                await interaction.response.send_message(embed=emb)
+                return
+        else:
+            # No referrals
+            emb = utl.make_embed(desc=f'<@{member.id}> has no referrals!', color=discord.Colour.red())
             await interaction.response.send_message(embed=emb)
             return
 

@@ -54,7 +54,7 @@ class MongoDB():
         if database != None:
             col = self.client[database][str(guild.id)]
             
-        col.insert_many(data)
+        col.insert_many(data, ordered=False, bypass_document_validation=True)
 
     async def delete_data(self, guild: Guild, query, database: str = None):
         col = self.db[str(guild.id)]
