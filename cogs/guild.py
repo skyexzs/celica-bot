@@ -740,19 +740,23 @@ class PGR_Guild(commands.Cog):
                 emb = utl.make_embed(desc=f'<@{referrer.id}> already has a referrer, they cannot refer others!', color=discord.Colour.red())
                 await interaction.response.send_message(embed=emb)
                 return
-            if len(rfred['refers']) > 0:
-                emb = utl.make_embed(desc=f'<@{referrer.id}> is already a referrer, they cannot be referred by others!', color=discord.Colour.red())
+            elif len(rfred['refers']) > 0:
+                emb = utl.make_embed(desc=f'<@{refers.id}> is already a referrer, they cannot be referred by others!', color=discord.Colour.red())
+                await interaction.response.send_message(embed=emb)
+                return
+            elif rfred['referrer'] != "":
+                emb = utl.make_embed(desc=f'<@{refers.id}> already has a referrer, they cannot be referred by someone else!', color=discord.Colour.red())
                 await interaction.response.send_message(embed=emb)
                 return
             else:
                 # Add referred to referrer
                 refs = rfrer['refers']
-                refs.append(refers.id)
+                refs.append(str(refers.id))
                 data = { '$set': {'refers': refs} }
                 await mongo.Mongo_Instance.insert_data(interaction.guild, query, data, 'memberdata')
                 
                 # Add referrer to referred
-                data2 = { '$set': {'referrer': referrer.id} }
+                data2 = { '$set': {'referrer': str(referrer.id)} }
                 await mongo.Mongo_Instance.insert_data(interaction.guild, query2, data2, 'memberdata')
 
                 emb = utl.make_embed(desc=f'Successfully added <@{referrer.id}> as the referrer of <@{refers.id}>!', color=discord.Colour.green())
@@ -803,11 +807,13 @@ class PGR_Guild(commands.Cog):
                     query2 = { '_id': r }
                     data2 = { '$set': {'referrer': ''} }
                     await mongo.Mongo_Instance.insert_data(interaction.guild, query2, data2, 'memberdata')
-                data = { '$set': {'refers': [] }}
+                data = { '$set': {'refers':[]} }
                 await mongo.Mongo_Instance.insert_data(interaction.guild, query, data, 'memberdata')
 
+                await interaction.edit_original_response(content='Done!', embed=None, view=None)
+
                 emb = utl.make_embed(desc=f'Successfully removed <@{member.id}> from all referrals!', color=discord.Colour.green())
-                await interaction.response.send_message(embed=emb)
+                await interaction.followup.send(embed=emb)
                 return
         else:
             # No referrals

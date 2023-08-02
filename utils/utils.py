@@ -149,10 +149,11 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
     if member.joined_at != None:
         jointime = member.joined_at.astimezone(tz=datetime.timezone(datetime.timedelta(hours=8)))
         jointime = jointime.strftime("%d/%m/%Y ")
-        boost = '\u200b' if not refs else ''
+        boost = '\u200b'
+        space = '\u200b\n' if not refs else ''
         if member.premium_since != None:
             boost = '**<:boost:1041634239541686272> Thanks for boosting this server! ❤️**'
-        emb.add_field(name=f'\u200b\n:pencil: You joined this server on {jointime}', value=boost, inline=False)
+        emb.add_field(name=f'{space}:pencil: You joined this server on {jointime}', value=boost, inline=False)
 
     emb.set_footer(text=f'〆 Exaltair • {guild}')
     emb.timestamp = datetime.datetime.now()
