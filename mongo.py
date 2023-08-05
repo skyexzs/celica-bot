@@ -40,6 +40,22 @@ class MongoDB():
 
         return data
     
+    async def get_multi_data(self, guild: Guild, query, database: str = None) -> list:
+        col = self.db[str(guild.id)]
+
+        try:
+            if database != None:
+                col = self.client[database][str(guild.id)]
+            cursor = col.find(query)
+
+            data = []
+            for result in cursor:
+                data.append(result)
+        except:
+            data = None
+
+        return data
+    
     async def insert_data(self, guild: Guild, query, data, database: str = None):
         col = self.db[str(guild.id)]
 

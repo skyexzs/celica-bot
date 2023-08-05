@@ -720,10 +720,10 @@ class PGR_Guild(commands.Cog):
         emb = utl.make_embed(desc=f'Successfully added members from <@&{role.id}> to database!', color=discord.Colour.green())
         await interaction.edit_original_response(embed=emb)
 
-    @members.command(name='referral')
+    @members.command(name='addref')
     @is_gm()
     @app_commands.describe(referrer='The one who invites.', refers="The one who got invited.")
-    async def members_referral(self, interaction: discord.Interaction, referrer: discord.Member, refers: discord.Member) -> None:
+    async def members_addref(self, interaction: discord.Interaction, referrer: discord.Member, refers: discord.Member) -> None:
         """Sets a referrer for a guild member"""
         if referrer is refers:
             emb = utl.make_embed(desc=f'Referrer cannot be the same person as the referred.', color=discord.Colour.red())
@@ -820,6 +820,40 @@ class PGR_Guild(commands.Cog):
             emb = utl.make_embed(desc=f'<@{member.id}> has no referrals!', color=discord.Colour.red())
             await interaction.response.send_message(embed=emb)
             return
+    
+    @members.command(name='referrals')
+    @is_gm()
+    async def members_referrals(self, interaction: discord.Interaction) -> None:
+        """List member referrals"""
+        await interaction.response.defer(thinking=True)
+        query = { 'refers': { '$ne': [] } }
+        data = await mongo.Mongo_Instance.get_multi_data(interaction.guild, query, 'memberdata')
+
+        if data is None or len(data) == 0:
+            # No referrals
+            emb = utl.make_embed(desc=f'There is currently no single referral yet!', color=discord.Colour.red())
+            await interaction.followup.send(embed=emb)
+            return
+
+        referrers = {}
+        for d in data:
+            referrers[d['_id']] = d['refers']
+
+        emb = discord.Embed(title='Referral List', color=discord.Colour.blue())
+        if interaction.guild.icon is not None:
+            emb.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+            emb.set_thumbnail(url=interaction.guild.icon.url)
+        emb.set_footer(text=interaction.user, icon_url=interaction.user.display_avatar.url)
+        emb.timestamp = datetime.datetime.now()
+
+        text = ''
+        for r in referrers.keys():
+            refers = referrers[r]
+            refers = [f"<@{refs}>" for refs in refers]
+            text += f'**<@{r}> ({len(refers)})** -> {", ".join(refers)}\n'
+        emb.description = text
+        await interaction.followup.send(embed=emb)
+
 
     @app_commands.command(name='find')
     @app_commands.describe(member='The member to find')
