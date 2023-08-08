@@ -97,6 +97,7 @@ class THT_Create_Or_Stop_View(THT_Button_View):
         super().__init__(timeout)
         self.add_item(Button_UI('Create', discord.ButtonStyle.green))
         self.add_item(Button_UI('Stop', discord.ButtonStyle.red, disabled=not check_tht_jobs_exist(guild_id)))
+        self.add_item(Button_UI('Cancel', discord.ButtonStyle.gray, disabled=not check_tht_jobs_exist(guild_id)))
 
     """
     @discord.ui.button(label='Create', style=discord.ButtonStyle.green)
@@ -387,10 +388,10 @@ class THT(commands.Cog):
                         await interaction.edit_original_response(embed=success, view=None)
                         await interaction.channel.send(embed=emb)
                         await interaction.channel.set_permissions(interaction.guild.get_role(role), send_messages=None, read_messages=None)
-                else:
+                elif view.value == 'Stop':
                     # stop THT event if any
-                    thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
-                    speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
+                    thtjob : Job = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
+                    speedthtjob : Job = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
 
                     stopview = THT_Stop_View()
                     if thtjob != None:
@@ -418,12 +419,51 @@ class THT(commands.Cog):
                         else:
                             if stopview.value == 'Normal':
                                 # Normal XAR
+                                await stop_tht_event(thtjob.args[0], thtjob.args[1], thtjob.args[2], thtjob.args[3])
                                 scheduler.schdr.remove_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
-                                emb = utl.make_embed(desc=f"Stopped scheduler for Normal XAR.", color=discord.Colour.green())
+                            else:
+                                # 15 Min XAR or 5 Min XAR (Speed XAR)
+                                await stop_tht_event(speedthtjob.args[0], speedthtjob.args[1], speedthtjob.args[2], speedthtjob.args[3])
+                                scheduler.schdr.remove_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
+                            emb = utl.make_embed(desc=f"Stopped scheduler for {stopview.value} XAR.", color=discord.Colour.green())
+                            await interaction.edit_original_response(embed=emb, view=None)
+                else:
+                    # cancel THT event if any
+                    thtjob = scheduler.schdr.get_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
+                    speedthtjob = scheduler.schdr.get_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
+
+                    stopview = THT_Stop_View()
+                    if thtjob != None:
+                        stopview.add_item(Button_UI('Normal', discord.ButtonStyle.blurple))
+                    if speedthtjob != None:
+                        stopview.add_item(Button_UI('Speed', discord.ButtonStyle.blurple))
+
+                    emb = utl.make_embed(desc="Which THT event do you want to cancel?", color=discord.Colour.yellow())
+                    await interaction.edit_original_response(embed=emb, view=stopview)
+                    await stopview.wait()
+
+                    if stopview.value is None:
+                        raise utl.ViewTimedOutError
+
+                    else:
+                        confirmview = THT_Button_View()
+                        confirmview.add_item(Button_UI('Confirm', discord.ButtonStyle.green))
+
+                        emb = utl.make_embed(desc=f"Are you sure you want to cancel {stopview.value} XAR?", color=discord.Colour.yellow())
+                        await interaction.edit_original_response(embed=emb, view=confirmview)
+                        await confirmview.wait()
+
+                        if confirmview.value is None:
+                            raise utl.ViewTimedOutError
+                        else:
+                            if stopview.value == 'Normal':
+                                # Normal XAR
+                                scheduler.schdr.remove_job(job_id='thtscheduler', jobstore=str(interaction.guild.id))
+                                emb = utl.make_embed(desc=f"Cancelled scheduler for Normal XAR.", color=discord.Colour.green())
                             else:
                                 # 15 Min XAR or 5 Min XAR (Speed XAR)
                                 scheduler.schdr.remove_job(job_id='speedthtscheduler', jobstore=str(interaction.guild.id))
-                                emb = utl.make_embed(desc=f"Stopped scheduler for Speed XAR.", color=discord.Colour.green())
+                                emb = utl.make_embed(desc=f"Cancelled scheduler for Speed XAR.", color=discord.Colour.green())
                             await interaction.edit_original_response(embed=emb, view=None)
 
         except utl.ViewTimedOutError:
