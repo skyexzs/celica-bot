@@ -24,6 +24,7 @@ from cogs.utilities import Utilities
 import cogs.utilities
 from cogs.warzone import Warzone
 import cogs.warzone
+import cogs.extras
 
 from utils.utils import ViewTimedOutError
 
@@ -119,8 +120,11 @@ async def reload(ctx: commands.Context, cog: str):
     elif cog == 'reaction':
         await bot.reload_extension('cogs.reaction')
         await ctx.send(f"Cog '{cog}' reloaded.")
+    elif cog == 'extras':
+        await bot.reload_extension('cogs.extras')
+        await ctx.send(f"Cog '{cog}' reloaded.")
     else:
-        await ctx.send("Available arguments: ppc, guild, reaction")
+        await ctx.send("Available arguments: ppc, guild, reaction, extras")
 
 @reload.error
 async def reload_error(ctx: commands.Context, error: commands.CommandError):
@@ -128,7 +132,7 @@ async def reload_error(ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.MissingPermissions) or isinstance(error, commands.CheckAnyFailure):
             await ctx.send("You have no permission to run this command.")
         elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Available arguments: ppc, guild, reaction")
+            await ctx.send("Available arguments: ppc, guild, reaction, extras")
 
 async def add_cogs():
     cogs.utilities.Utilities_Instance = Utilities(bot)
@@ -143,6 +147,7 @@ async def add_cogs():
     await bot.load_extension('cogs.ppc')
     await bot.load_extension('cogs.guild')
     await bot.load_extension('cogs.reaction')
+    await bot.load_extension('cogs.extras')
 
     await global_schdr.run_schedulers(gc, cogs.utilities.Utilities_Instance, bot.get_cog('PPC'))
     
