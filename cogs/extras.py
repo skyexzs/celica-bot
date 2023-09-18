@@ -12,6 +12,7 @@ class Extras(commands.Cog):
         if msg.guild is None:
             return
         if msg.channel.id == 905035677459161089:
+            return
             if len(msg.attachments) > 0:
                 image_exist = [i for i in msg.attachments if "image/" in i.content_type]
                 if image_exist:
