@@ -602,6 +602,43 @@ class PGR_Guild(commands.Cog):
         await interaction.response.send_message(embed=emb)
         return
     
+    @members.command(name='editdiscordid')
+    @is_gm()
+    @app_commands.describe(
+        guild='Which guild to edit the member from?',
+        uid="The in-game UID to change discord ID (e.g 18612020)",
+        member="The UID's new discord ID")
+    @app_commands.choices(guild=[
+        Choice(name='Main', value=1),
+        Choice(name='Sub', value=2)
+    ])
+    async def members_editdiscordid(self, interaction: discord.Interaction, guild: Choice[int], uid: app_commands.Range[int, 10000000, 19999999], member: discord.Member):
+        """Edit the discord ID of a UID"""
+        self.get_data(guild.name)
+        data = None
+        if guild.name == 'Main':
+            data = self.main_data
+        else:
+            data = self.sub_data
+        
+        # If the UID is not in guild
+        if not any(str(uid) in x for x in data):
+            emb = utl.make_embed(desc=f":x: There are no records of UID {uid} in {guild.name} guild.", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+        
+        records = [m for m in data if m[2] == (str(uid))]
+
+        old_discord_id = records[0][0]
+        # Changing the real main/sub data
+        for r in data:
+            if r[2] == str(uid):
+                r[0] = str(member.id)
+        await self.update_data(guild.name)
+        emb = utl.make_embed(desc=f"Changed discord ID of <@{old_discord_id}> ({old_discord_id}) to <@{member.id}> ({member.id}) in {guild.name} guild.", color=discord.Colour.green())
+        await interaction.response.send_message(embed=emb)
+        return
+    
     @members.command(name='nick')
     @is_gm()
     @app_commands.describe(
