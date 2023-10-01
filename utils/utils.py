@@ -152,7 +152,7 @@ def make_gb_progress_embed(interaction: discord.Interaction, member: discord.Mem
         boost = '\u200b'
         space = '\u200b\n' if not refs else ''
         if member.premium_since != None:
-            boost = '**<:boost:1041634239541686272> Thanks for boosting this server! ❤️**'
+            boost = '**<:nitro_boost:1041634239541686272> Thanks for boosting this server! ❤️**'
         emb.add_field(name=f'{space}:pencil: You joined this server on {jointime}', value=boost, inline=False)
 
     emb.set_footer(text=f'〆 Exaltair • {guild}')
