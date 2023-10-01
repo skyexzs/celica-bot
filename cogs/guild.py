@@ -628,6 +628,12 @@ class PGR_Guild(commands.Cog):
             return
         
         records = [m for m in data if m[2] == (str(uid))]
+        
+        # If member is same as old one
+        if records[0][0] == str(member.id):
+            emb = utl.make_embed(desc=f":x: UID {uid} is already owned by <@{member.id}>.", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
 
         old_discord_id = records[0][0]
         # Changing the real main/sub data
@@ -635,7 +641,7 @@ class PGR_Guild(commands.Cog):
             if r[2] == str(uid):
                 r[0] = str(member.id)
         await self.update_data(guild.name)
-        emb = utl.make_embed(desc=f"Changed discord ID of <@{old_discord_id}> ({old_discord_id}) to <@{member.id}> ({member.id}) in {guild.name} guild.", color=discord.Colour.green())
+        emb = utl.make_embed(desc=f"Changed discord ID of UID {uid} from <@{old_discord_id}> ({old_discord_id}) to <@{member.id}> ({member.id}) in {guild.name} guild.", color=discord.Colour.green())
         await interaction.response.send_message(embed=emb)
         return
     
