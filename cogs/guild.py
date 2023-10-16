@@ -4,6 +4,8 @@ import datetime
 from typing import Literal, Optional
 from gspread.utils import ValueRenderOption
 from xlsxwriter.utility import xl_col_to_name
+import aiohttp
+from datetime import datetime
 
 import discord
 from discord.ext import commands
@@ -174,6 +176,7 @@ class PGR_Guild(commands.Cog):
     GM = app_commands.Group(name='gm', description='Commands to set Guild Manager', default_permissions=discord.Permissions(administrator=True))
     members = app_commands.Group(name='members', description='Commands to manage guild members', default_permissions=discord.Permissions(ban_members=True))
     gb = app_commands.Group(name='gb', description='Commands to check guild battle progress')
+    player = app_commands.Group(name='player', description="Command to find player")
 
     @app_commands.command(name='link')
     @is_gm()
@@ -1298,6 +1301,57 @@ class PGR_Guild(commands.Cog):
             emb = utl.make_embed(desc=f"The guild battle date '{start_of_week}' already exist.", color=discord.Colour.red())
 
         await interaction.edit_original_response(embed=emb)
+
+    @player.command(name='find')
+    @app_commands.describe(uid='The UID to find.', server='Which server to find from?')
+    @app_commands.choices(server=[
+        Choice(name='AP', value=1),
+        Choice(name='NA', value=2),
+        Choice(name='EU', value=3)
+    ])
+    async def player_find(self, interaction: discord.Interaction, server: Choice[int], uid: app_commands.Range[int, 10000000, 19999999]) -> None:
+        srv = ''
+        longsrv = ''
+        if server.name == 'AP':
+            srv = 'ap'
+            longsrv = 'Asia-Pacific'
+        elif server.name == 'NA':
+            srv = 'na'
+            longsrv = 'North-America'
+        else:
+            srv = 'eu'
+            longsrv = 'Europe'
+        url = f"https://kennel.doggostruct.com/live/servers/{srv}/players/{uid}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+        
+        if data['status'] == 'error' and data['message'] == "player not found":
+            emb = utl.make_embed(desc=f"Cannot find player with UID {uid} in {longsrv} server!", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb)
+            return
+        elif data['status'] != 'success':
+            emb = utl.make_embed(desc=f"An unknown error has occured! Please contact the administrator to fix this.", color=discord.Colour.red())
+            await interaction.response.send_message(embed=emb)
+            return
+        
+        data = data['data']
+        player = data['player']
+        profile_url = "https://huaxu.doggostruct.com/pgr/assets/product/texture/image/" + player['portrait'] + ".webp"
+        start_date = int(datetime.fromisoformat(data['start_date']).timestamp())
+ 
+        emb = discord.Embed(title=f'{player["name"]} (Lv.{player["level"]})', description=player["sign"], url=f"https://huaxu.doggostruct.com/players/{srv}/{uid}/characters")
+        emb.set_author(name=f'{longsrv} • {player["id"]}')
+        emb.set_thumbnail(url=profile_url)
+        emb.add_field(name=":calendar_spiral: Started at", value=f"<t:{start_date}:D> (<t:{start_date}:R>)", inline=False)
+        emb.add_field(name="<:flag:977902975030796288> Guild", value=player["guild_name"], inline=False)
+        emb.add_field(name=":star: Likes", value=player["likes"], inline=False)
+        emb.set_footer(text=f"Powered by HUAXU", icon_url="https://github.com/skyexzs/database/blob/main/misc/huaxu-doggostruct/huaxu.png?raw=true")
+        emb.timestamp = datetime.now()
+
+        await interaction.response.send_message(embed=emb)
+
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
