@@ -1317,7 +1317,7 @@ class PGR_Guild(commands.Cog):
             longsrv = 'Asia-Pacific'
         elif server.name == 'NA':
             srv = 'na'
-            longsrv = 'North-America'
+            longsrv = 'America'
         else:
             srv = 'eu'
             longsrv = 'Europe'
@@ -1339,14 +1339,19 @@ class PGR_Guild(commands.Cog):
         data = data['data']
         player = data['player']
         profile_url = "https://huaxu.doggostruct.com/pgr/assets/product/texture/image/" + player['portrait'] + ".webp"
-        start_date = int(datetime.fromisoformat(data['start_date']).timestamp())
+        start_date = None
+        if data['start_date'] != None:
+            start_date = int(datetime.fromisoformat(data['start_date']).timestamp())
  
         emb = discord.Embed(title=f'{player["name"]} (Lv.{player["level"]})', description=player["sign"], url=f"https://huaxu.doggostruct.com/players/{srv}/{uid}/characters")
         emb.set_author(name=f'{longsrv} • {player["id"]}')
         emb.set_thumbnail(url=profile_url)
-        emb.add_field(name=":calendar_spiral: Started at", value=f"<t:{start_date}:D> (<t:{start_date}:R>)", inline=False)
-        emb.add_field(name="<:flag:977902975030796288> Guild", value=player["guild_name"], inline=False)
-        emb.add_field(name=":star: Likes", value=player["likes"], inline=False)
+        if start_date:
+            emb.add_field(name=":calendar_spiral: Started", value=f"<t:{start_date}:D> (<t:{start_date}:R>)", inline=False)
+        else:
+            emb.add_field(name=":calendar_spiral: Started", value=f"`Unknown`", inline=False)
+        emb.add_field(name="<:flag:977902975030796288> Guild", value=f'`{player["guild_name"]}`', inline=False)
+        emb.add_field(name=":star: Likes", value=f'`{player["likes"]}`', inline=False)
         emb.set_footer(text=f"Powered by HUAXU", icon_url="https://github.com/skyexzs/database/blob/main/misc/huaxu-doggostruct/huaxu.png?raw=true")
         emb.timestamp = datetime.now()
 
